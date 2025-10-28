@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outage Information - Beacon</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+</head>
+<body>
+    <nav class="desktop-nav">
+        <div class="user-profile">
+            <div class="user-avatar">JS</div>
+            <div class="user-info">
+                <h3>John Smith</h3>
+                <p>User</p>
+                <button class="edit-profile">Edit Profile</button>
+            </div>
+        </div>
+            <ul class="desktop-nav-menu">
+                <li class="desktop-nav-item" data-page="dashboard">
+                    <a href="index.html" class="desktop-nav-link">
+                        <span class="material-symbols-outlined desktop-nav-icon">dashboard</span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="desktop-nav-item" data-page="calendar">
+                    <a href="calendar.html" class="desktop-nav-link">
+                        <span class="material-symbols-outlined desktop-nav-icon">calendar_month</span>
+                        <span>Calendar</span>
+                    </a>
+                </li>
+                <li class="desktop-nav-item" data-page="map">
+                    <a href="map.html" class="desktop-nav-link">
+                        <span class="material-symbols-outlined desktop-nav-icon">map</span>
+                        <span>Map</span>
+                    </a>
+                </li>
+                <li class="desktop-nav-item" data-page="report">
+                    <a href="report.html" class="desktop-nav-link">
+                        <span class="material-symbols-outlined desktop-nav-icon">report</span>
+                        <span>Report</span>
+                    </a>
+                </li>
+                <li class="desktop-nav-item" data-page="notification">
+                    <a href="notification.html" class="desktop-nav-link">
+                        <span class="material-symbols-outlined desktop-nav-icon">notifications</span>
+                        <span>Notifications</span>
+                    </a>
+                </li>
+            </ul>
+    </nav>
+
+    <div class="content-area">
+        <header>
+            <div class="logo">Beacon</div>
+            <div class="profile-icon">JS</div>
+        </header>
+
+        <main class="page active" id="information">
+            <div class="info-header">
+                <div class="feeder-info">Feeder 12 | Camp 7</div>
+                <div class="status status-ongoing">Ongoing</div>
+            </div>
+
+            <div class="info-image">
+                <span class="material-symbols-outlined">image</span>
+            </div>
+
+            <div class="info-section">
+                <h3 class="info-section-title">Areas Affected:</h3>
+                <div class="affected-areas">Camp 7, Hillside, Senta Escolatisca</div>
+                <div class="show-more">Show more</div>
+            </div>
+
+            <div class="info-section">
+                <div class="info-detail">
+                    <span class="info-label">Start Time:</span>
+                    <span>06:52 AM, October 27, 2025</span>
+                </div>
+                <div class="info-detail">
+                    <span class="info-label">Cause:</span>
+                    <span>Damaged transformer</span>
+                </div>
+                <div class="info-detail">
+                    <span class="info-label">Status:</span>
+                    <span>Ongoing repair</span>
+                </div>
+                <div class="info-detail">
+                    <span class="info-label">ETA:</span>
+                    <span>09:25 AM (2 hours remaining)</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item" data-page="dashboard">
+            <span class="material-symbols-outlined nav-icon">dashboard</span>
+            <span>Dashboard</span>
+        </a>
+        <a href="calendar.html" class="nav-item" data-page="calendar">
+            <span class="material-symbols-outlined nav-icon">calendar_month</span>
+            <span>Calendar</span>
+        </a>
+        <a href="map.html" class="nav-item" data-page="map">
+            <span class="material-symbols-outlined nav-icon">map</span>
+            <span>Map</span>
+        </a>
+        <a href="report.html" class="nav-item" data-page="report">
+            <span class="material-symbols-outlined nav-icon">report</span>
+            <span>Report</span>
+        </a>
+        <a href="notification.html" class="nav-item" data-page="notification">
+            <span class="material-symbols-outlined nav-icon">notifications</span>
+            <span>Notifications</span>
+        </a>
+    </nav>
+
+    <script src="script.js"></script>
+</body>
+</html>

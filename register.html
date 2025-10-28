@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Beacon</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+</head>
+<body class="auth-body">
+    <div class="auth-container">
+        <div class="auth-logo">
+            <div class="logo">Beacon</div>
+        </div>
+        <div class="auth-form">
+            <h2 class="auth-title">Create Account</h2>
+            
+            <div class="form-group">
+                <label class="form-label required">First Name</label>
+                <input type="text" class="form-input" id="first-name" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Last Name</label>
+                <input type="text" class="form-input" id="last-name" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Mobile Number</label>
+                <input type="tel" class="form-input" id="mobile-number" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Email</label>
+                <input type="email" class="form-input" id="email" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Password</label>
+                <input type="password" class="form-input" id="password" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Confirm Password</label>
+                <input type="password" class="form-input" id="confirm-password" required>
+            </div>
+
+            <div class="terms-checkbox">
+                <input type="checkbox" id="terms" required>
+                <label for="terms">I agree to the Terms and Conditions</label>
+            </div>
+
+            <button class="auth-button" id="register-button">Create Account</button>
+            
+            <div class="otp-verification" id="otp-section" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label required">Enter OTP</label>
+                    <input type="text" class="form-input" id="otp-input" placeholder="Enter OTP sent to your email">
+                </div>
+                <button class="auth-button" id="verify-otp">Verify OTP</button>
+            </div>
+            
+            <a href="login.html" class="auth-link">Already have an account? Login</a>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
