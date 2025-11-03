@@ -126,6 +126,8 @@
                         <input type="checkbox" id="geolocation">
                         <label for="geolocation">Enable geolocation for precise location</label>
                     </div>
+                    <input type="hidden" id="latitude">
+                    <input type="hidden" id="longitude">
                 </div>
 
                 <button class="submit-button" id="submit-report">Submit Report</button>
@@ -156,6 +158,16 @@
         </a>
     </nav>
 
-    <script src="script.js"></script>
+
+    <!-- 1️⃣ Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- 2️⃣ Global initialization (defines supabase client) -->
+    <script src="script/global.js"></script>
+
+    <!-- 3️⃣ Report logic (uses supabase) -->
+    <script src="script/report.js"></script>
+
+
 </body>
 </html>
