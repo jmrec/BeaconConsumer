@@ -1213,3 +1213,150 @@ main {
     padding: 10px 14px;
   }
 }
+
+/* Status Highlight Bars */
+.status-highlight {
+  height: 4px;
+  border-radius: 2px 2px 0 0;
+  margin: -8px -12px 8px -12px;
+}
+
+.status-highlight.status-completed {
+  background: #27ae60;
+}
+
+.status-highlight.status-ongoing {
+  background: #f39c12;
+}
+
+.status-highlight.status-pending,
+.status-highlight.status-reported {
+  background: #e74c3c;
+}
+
+/* Status Container for Header */
+.status-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Three Dots Button */
+.three-dots-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.three-dots-btn:hover {
+  background: #f5f5f5;
+}
+
+/* Report Actions Menu */
+.report-actions-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 8px 0;
+  z-index: 1000;
+  min-width: 120px;
+}
+
+.action-item {
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: #333;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-item:hover {
+  background: #f5f5f5;
+}
+
+.action-item.delete-report {
+  color: #e74c3c;
+}
+
+/* Image Preview Styles */
+.image-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.preview-item {
+  position: relative;
+  display: inline-block;
+}
+
+.remove-image {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-count {
+  width: 80px;
+  height: 80px;
+  border: 2px dashed #f1c40f;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #f1c40f;
+  background: #fffdf0;
+}
+
+
+/* Mobile-specific map controls */
+@media (max-width: 768px) {
+    .map-controls {
+        flex-direction: column;
+    }
+    
+    .search-input {
+        min-width: auto;
+    }
+    
+    .filter-button {
+        align-self: flex-start;
+        padding: 8px;
+    }
+}
+
+/* Custom marker styles */
+.custom-marker.ongoing {
+    z-index: 1000;
+}
+
+.custom-marker.reported {
+    z-index: 999;
+}
