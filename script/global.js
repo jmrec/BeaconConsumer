@@ -623,21 +623,61 @@ function loadLocalStorageData() {
 }
 
 function initializeNavigation() {
+    console.log('🔍 Initializing navigation system...');
     document.querySelectorAll('.nav-item, .desktop-nav-item').forEach(item => {
         item.addEventListener('click', function(e) {
-            if (this.getAttribute('href')) return;
+            console.log('🖱️ Navigation item clicked:', {
+                element: this,
+                hasHref: !!this.getAttribute('href'),
+                dataPage: this.getAttribute('data-page'),
+                className: this.className
+            });
+            
+            if (this.getAttribute('href')) {
+                console.log('➡️ Item has href, allowing default navigation');
+                return;
+            }
+            
             const pageId = this.getAttribute('data-page');
-            if (pageId) navigateToPage(pageId);
+            console.log('📄 Page ID from data-page:', pageId);
+            
+            if (pageId) {
+                console.log('🚀 Calling navigateToPage with:', pageId);
+                navigateToPage(pageId);
+            } else {
+                console.warn('⚠️ No data-page attribute found on clicked element');
+            }
         });
     });
 }
 
 function navigateToPage(pageId) {
-    document.querySelectorAll('.nav-item, .desktop-nav-item').forEach(i => i.classList.remove('active'));
-    const navItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
-    const desktopNavItem = document.querySelector(`.desktop-nav-item[data-page="${pageId}"]`);
-    if (navItem) navItem.classList.add('active');
-    if (desktopNavItem) desktopNavItem.classList.add('active');
+    console.log('🧭 navigateToPage called with pageId:', pageId);
+    
+    // Map page IDs to actual URLs
+    const pageMap = {
+        'dashboard': 'index.html',
+        'calendar': 'calendar.html',
+        'map': 'map.html',
+        'report': 'report.html',
+        'notification': 'notification.html'
+    };
+    
+    const targetUrl = pageMap[pageId];
+    console.log('🗺️ Page mapping:', { pageId, targetUrl });
+    
+    if (targetUrl) {
+        console.log('📍 Navigating to:', targetUrl);
+        window.location.href = targetUrl;
+    } else {
+        console.error('❌ No URL mapping found for pageId:', pageId);
+        // Fallback: just update active state
+        document.querySelectorAll('.nav-item, .desktop-nav-item').forEach(i => i.classList.remove('active'));
+        const navItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+        const desktopNavItem = document.querySelector(`.desktop-nav-item[data-page="${pageId}"]`);
+        if (navItem) navItem.classList.add('active');
+        if (desktopNavItem) desktopNavItem.classList.add('active');
+    }
 }
 
 function showPage(pageId) {
