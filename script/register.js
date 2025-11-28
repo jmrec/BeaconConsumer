@@ -11,17 +11,10 @@ function initializeRegister() {
             registerUser();
         });
     }
-    
-    const verifyOtpButton = document.getElementById('verify-otp');
-    if (verifyOtpButton) {
-        verifyOtpButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            verifyOtp();
-        });
-    }
 }
 
 async function registerUser() {
+    // 1. Get Values
     const firstName = document.getElementById('first-name').value;
     const lastName = document.getElementById('last-name').value;
     const mobile = document.getElementById('mobile-number').value;
@@ -29,9 +22,10 @@ async function registerUser() {
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
     const terms = document.getElementById('terms').checked;
+    
     const registerBtn = document.getElementById('register-button');
 
-    // --- Validation ---
+    // 2. Client-side Validation
     if (!firstName || !lastName || !mobile || !email || !password || !confirmPassword) {
         alert('Please fill in all required fields');
         return;
@@ -47,74 +41,44 @@ async function registerUser() {
         return;
     }
 
-    // Disable button to prevent double clicks
+    // 3. UI State: Processing
     registerBtn.disabled = true;
     registerBtn.textContent = "Processing...";
 
-    // --- Supabase Sign Up ---
+    // 4. Supabase Sign Up
     try {
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password,
             options: {
-                // Store extra user details in metadata
+                // These fields are passed to the 'profiles' table via your DB Trigger
                 data: {
                     first_name: firstName,
                     last_name: lastName,
                     mobile: mobile,
-                    role: 'user' // Default role
+                    role: 'user' 
+                    // Note: 'barangay' is omitted here. 
+                    // The DB will set it to default 'Not set'.
                 }
             }
         });
 
         if (error) throw error;
 
-        // Success handling
-        alert('Registration successful! Please check your email for the verification code.');
+        // 5. Success Handling
+        // Update the success message with the user's email for clarity
+        document.getElementById('display-email').textContent = email;
         
-        // Switch UI to OTP mode
-        document.getElementById('register-button').style.display = 'none';
-        document.getElementById('otp-section').style.display = 'block';
+        // Hide form, show success message
+        document.getElementById('registration-form').style.display = 'none';
+        document.getElementById('success-message').style.display = 'block';
         
     } catch (error) {
         console.error('Registration Error:', error);
         alert('Error registering: ' + error.message);
+        
+        // Reset button state
         registerBtn.disabled = false;
         registerBtn.textContent = "Create Account";
-    }
-}
-
-async function verifyOtp() {
-    const email = document.getElementById('email').value;
-    const token = document.getElementById('otp-input').value;
-    const verifyBtn = document.getElementById('verify-otp');
-    
-    if (!token) {
-        alert('Please enter the OTP code');
-        return;
-    }
-
-    verifyBtn.disabled = true;
-    verifyBtn.textContent = "Verifying...";
-
-    try {
-        // --- Supabase OTP Verification ---
-        const { data, error } = await supabase.auth.verifyOtp({
-            email: email,
-            token: token,
-            type: 'signup'
-        });
-
-        if (error) throw error;
-
-        // Success: Session is now active
-        alert('Email verified successfully!');
-        window.location.href = 'index.html';
-
-    } catch (error) {
-        console.error('Verification Error:', error);
-        alert('Invalid OTP or verification failed: ' + error.message);
-        verifyBtn.disabled = false;
-        verifyBtn.textContent = "Verify OTP";
     }
 }

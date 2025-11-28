@@ -27,7 +27,7 @@ function showGlobalAlert(message) {
     const overlay = document.createElement('div');
     overlay.id = 'global-alert-overlay';
     overlay.className = 'modal-overlay active';
-    overlay.style.zIndex = '10005'; // Above other modals
+    overlay.style.zIndex = '100005'; // HIGHEST PRIORITY (Alerts)
 
     overlay.innerHTML = `
         <style>
@@ -104,7 +104,7 @@ function showConfirmationPopup(message, isError = false) {
     </div>`;
   popup.style.cssText = `
     position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(0,0,0,0.4);display:flex;justify-content:center;align-items:center;z-index:10000;
+    background:rgba(0,0,0,0.4);display:flex;justify-content:center;align-items:center;z-index:100000; /* Very High */
   `;
   document.body.appendChild(popup);
 
@@ -703,215 +703,203 @@ function registerServiceWorker() {
 }
 
 // ========================================================
-// === NEW: PROFILE MODAL FUNCTIONS (CLEANED & FIXED) ===
+// === NEW: PROFILE MODAL FUNCTIONS (FIXED) ===
 // ========================================================
 
-// To store the file selected for avatar upload
+// Store the file selected for avatar upload
 let stagedAvatarFile = null;
+
+// 1. FORCE EXPORT GLOBALLY so the "X" button can find it
+window.closeProfileModal = function() {
+    const overlay = document.getElementById('profile-modal-overlay');
+    if (overlay) overlay.remove();
+    stagedAvatarFile = null; 
+    console.log("✅ Modal closed.");
+};
 
 /**
  * Creates and displays the user profile editing modal.
- * Fetches current user and profile data from Supabase.
  */
 async function showProfileModal() {
-    stagedAvatarFile = null; // Reset staged file
-    let profile = {}; // Define profile in a scope accessible to save function
+    console.log("🚀 Opening Profile Modal...");
+    stagedAvatarFile = null; 
+    let profile = {}; 
     
+    // Remove existing
+    const existing = document.getElementById('profile-modal-overlay');
+    if (existing) existing.remove();
+
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        if (!window.supabase) {
+            console.error("❌ Supabase not initialized");
+            return;
+        }
+
+        const { data: { user } } = await window.supabase.auth.getUser();
         if (!user) {
             showConfirmationPopup("⚠️ Please log in to edit your profile", true);
             return;
         }
 
-        // Fetch the user's profile data (first_name, last_name, etc.)
-        // FIXED: Select profile_picture and barangay
-        const { data: profileData, error: profileError } = await supabase
+        // Fetch Profile
+        const { data: profileData, error: profileError } = await window.supabase
             .from('profiles')
             .select('first_name, last_name, mobile, profile_picture, barangay') 
             .eq('id', user.id)
             .single();
 
-        if (profileError) {
-            // It's possible for a user to exist in auth but not have a profile row yet
-            // We'll proceed with an empty profile object
-            console.warn("Could not fetch profile, proceeding with empty data:", profileError.message);
-            profile = {}; 
-        } else {
-            profile = profileData || {}; // Assign to outer scope
-        }
-        
-        // FIXED: Use profile_picture
+        profile = profileData || {}; 
         const avatarSrc = profile.profile_picture || 'https://placehold.co/100x100/f1c40f/333?text=Profile';
         
-        // Fetch all barangays for the datalist
+        // Fetch Barangays
         let barangayOptions = '';
         try {
-            const { data: barangaysData, error: barangaysError } = await supabase
+            const { data: barangaysData } = await window.supabase
                 .from('barangays')
                 .select('name')
                 .order('name');
-            if (barangaysError) throw barangaysError;
             barangayOptions = (barangaysData || []).map(b => `<option value="${b.name}"></option>`).join('');
-        } catch (err) {
-            console.error("Error fetching barangays:", err);
-            // Non-fatal, the list will just be empty
-        }
+        } catch (err) { console.error("Error fetching barangays:", err); }
 
-        // Create modal overlay
+        // Create overlay
         const overlay = document.createElement('div');
         overlay.id = 'profile-modal-overlay';
         overlay.className = 'modal-overlay active';
+        
+        // --- NUCLEAR FIX: Z-Index Stacking ---
+        // Profile Modal is 99000. Confirm modal must be higher (99999).
+        overlay.style.cssText = "z-index: 99000 !important; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center;";
+
         overlay.innerHTML = `
-            <!-- FIXED: Added responsive styles for modal and toggle -->
             <style>
                 #profile-modal-overlay .modal {
-                    width: 90%;
-                    max-width: 400px; /* Mobile-first max-width */
-                    border-radius: 12px;
+                    width: 90%; max-width: 450px;
+                    background: white; border-radius: 12px;
                     border: 2px solid #f1c40f;
-                    margin-top: 5vh;
-                    margin-bottom: 5vh;
+                    position: relative; 
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+                    display: flex; flex-direction: column;
+                    max-height: 85vh; /* Reduced height to ensure fit on mobile */
+                }
+                .modal-header { 
+                    display: flex; justify-content: space-between; align-items: center; 
+                    padding: 15px; border-bottom: 1px solid #eee; 
+                    flex-shrink: 0; /* Don't shrink header */
+                }
+                .modal-body { 
+                    padding: 15px; overflow-y: auto; flex: 1; 
+                }
+                .modal-actions { 
+                    padding: 15px; border-top: 1px solid #eee; text-align: right; 
+                    flex-shrink: 0; /* Don't shrink footer */
+                    background: white; /* Ensure non-transparent */
+                    border-radius: 0 0 10px 10px;
                 }
                 
-                /* On desktop, make it wider */
-                @media (min-width: 640px) {
-                    #profile-modal-overlay .modal {
-                        max-width: 500px; 
-                    }
-                }
-            
-                /* Toggle Switch CSS */
-                .switch {
-                  position: relative;
-                  display: inline-block;
-                  width: 50px;
-                  height: 28px;
-                  margin-right: 8px;
-                }
+                /* Switch Styles */
+                .switch { position: relative; display: inline-block; width: 50px; height: 28px; margin-right: 8px; }
                 .switch input { opacity: 0; width: 0; height: 0; }
-                .slider {
-                  position: absolute; cursor: pointer;
-                  top: 0; left: 0; right: 0; bottom: 0;
-                  background-color: #ccc;
-                  transition: .4s;
-                  border-radius: 28px;
-                }
-                .slider:before {
-                  position: absolute; content: "";
-                  height: 20px; width: 20px;
-                  left: 4px; bottom: 4px;
-                  background-color: white;
-                  transition: .4s;
-                  border-radius: 50%;
-                }
+                .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+                .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
                 input:checked + .slider { background-color: #f1c40f; }
                 input:checked + .slider:before { transform: translateX(22px); }
             </style>
 
             <div class="modal">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #eee;">
+                <div class="modal-header">
                     <h2 style="margin: 0; font-size: 1.2em;">Edit Profile</h2>
-                    <button id="cancel-profile" style="background:none; border:none; font-size: 24px; cursor:pointer; color: #888;">&times;</button>
+                    <!-- DIRECT CLICK HANDLER for 'X' -->
+                    <button type="button" onclick="window.closeProfileModal()" style="background:none; border:none; font-size: 28px; cursor:pointer; color: #555; padding: 0 5px;">&times;</button>
                 </div>
                 
-                <div class="modal-body" style="padding: 16px; max-height: 70vh; overflow-y: auto;">
-                    
-                    <!-- Profile Image Section -->
+                <div class="modal-body">
                     <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 16px;">
                         <img id="profile-image-circle" src="${avatarSrc}" alt="Profile" 
-                             style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #f1c40f; cursor: pointer; object-fit: cover; background: #eee;">
+                             style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #f1c40f; cursor: pointer; object-fit: cover;">
                         <input type="file" id="profile-image-input" accept="image/*" style="display: none;">
-                        <button id="update-image-btn" type="button" style="background: none; border: none; color: #f1c40f; font-weight: 600; cursor: pointer; padding: 8px; font-size: 0.9em;">
-                            Update Image
-                        </button>
+                        <button id="update-image-btn" type="button" style="background: none; border: none; color: #f1c40f; font-weight: 600; cursor: pointer; padding: 8px;">Update Image</button>
                     </div>
 
-                    <!-- Profile Form -->
-                    <div id="profile-form-fields">
-                        <label for="profile-email" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">Email</label>
-                        <input type="email" id="profile-email" value="${user.email || ''}" disabled 
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: #f4f4f4; color: #777; margin-bottom: 12px; box-sizing: border-box;">
-                        
-                        <label for="profile-first-name" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">First Name</label>
-                        <input type="text" id="profile-first-name" value="${profile.first_name || ''}" 
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Email</label>
+                    <input type="email" value="${user.email || ''}" disabled style="width: 100%; padding: 10px; margin-bottom: 10px; background: #f4f4f4; border: 1px solid #ddd; border-radius: 6px;">
+                    
+                    <label>First Name</label>
+                    <input type="text" id="profile-first-name" value="${profile.first_name || ''}" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px;">
 
-                        <label for="profile-last-name" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">Last Name</label>
-                        <input type="text" id="profile-last-name" value="${profile.last_name || ''}" 
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box;">
+                    <label>Last Name</label>
+                    <input type="text" id="profile-last-name" value="${profile.last_name || ''}" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px;">
 
-                        <label for="profile-mobile" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">Mobile</label>
-                        <input type="tel" id="profile-mobile" value="${profile.mobile || ''}" 
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box;">
-                        
-                        <!-- Barangay Field -->
-                        <label for="profile-barangay" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">Location (Barangay)</label>
-                        <input type="text" id="profile-barangay" list="barangay-list" value="${profile.barangay || ''}"
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box;">
-                        <datalist id="barangay-list">
-                            ${barangayOptions}
-                        </datalist>
+                    <label>Mobile</label>
+                    <input type="tel" id="profile-mobile" value="${profile.mobile || ''}" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                    
+                    <label>Location (Barangay)</label>
+                    <input type="text" id="profile-barangay" list="barangay-list" value="${profile.barangay || ''}" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                    <datalist id="barangay-list">${barangayOptions}</datalist>
 
-                        <!-- Password Toggle (FIXED LAYOUT) -->
-                        <div style="margin-top: 16px;">
-                            <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.9em;">
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-password-update">
-                                    <span class="slider"></span>
-                                </label>
-                                Update Password
+                    <div style="margin-top: 15px;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-password-update">
+                                <span class="slider"></span>
                             </label>
-                            <div id="password-update-section" style="display: none; margin-top: 12px; padding: 12px; background: #f9f9f9; border-radius: 6px;">
-                                <label for="profile-new-password" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">New Password</label>
-                                <input type="password" id="profile-new-password" placeholder="Enter new password"
-                                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box;">
-                                
-                                <label for="profile-confirm-password" style="display: block; margin-bottom: 4px; font-weight: 500; font-size: 0.9em;">Confirm Password</label>
-                                <input type="password" id="profile-confirm-password" placeholder="Confirm new password"
-                                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
-                            </div>
+                            Update Password
+                        </label>
+                        <div id="password-update-section" style="display: none; margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 6px;">
+                            <input type="password" id="profile-new-password" placeholder="New Password" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                            <input type="password" id="profile-confirm-password" placeholder="Confirm Password" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
                         </div>
                     </div>
                 </div>
                 
-                <div class="modal-actions" style="padding: 16px; border-top: 1px solid #eee; text-align: right;">
-                    <button id="save-profile" style="background: #f1c40f; color: #333; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1em;">
-                        Save Changes
-                    </button>
+                <div class="modal-actions">
+                    <button type="button" onclick="window.closeProfileModal()" style="margin-right: 10px; padding: 10px 20px; background: #eee; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+                    <button id="save-profile" type="button" style="padding: 10px 20px; background: #f1c40f; color: #333; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">Save Changes</button>
                 </div>
             </div>
         `;
         document.body.appendChild(overlay);
 
-        // --- Add Event Listeners ---
+        // --- ATTACH LISTENERS WITH DELAY (Ensures DOM is ready) ---
+        setTimeout(() => {
+            console.log("🛠️ Attaching event listeners...");
+            
+            // Image Upload
+            const imgInput = document.getElementById('profile-image-input');
+            const imgCircle = document.getElementById('profile-image-circle');
+            const imgBtn = document.getElementById('update-image-btn');
+            
+            if(imgCircle) imgCircle.onclick = () => imgInput.click();
+            if(imgBtn) imgBtn.onclick = () => imgInput.click();
+            // Ensure previewProfileImage exists in your file!
+            if(imgInput && typeof previewProfileImage === 'function') {
+                imgInput.onchange = previewProfileImage;
+            }
 
-        // Image upload
-        const imgCircle = document.getElementById('profile-image-circle');
-        const imgBtn = document.getElementById('update-image-btn');
-        const imgInput = document.getElementById('profile-image-input');
-        
-        imgCircle.addEventListener('click', () => imgInput.click());
-        imgBtn.addEventListener('click', () => imgInput.click());
-        imgInput.addEventListener('change', previewProfileImage);
+            // Password Toggle
+            const pwToggle = document.getElementById('toggle-password-update');
+            if(pwToggle) {
+                pwToggle.onchange = (e) => {
+                    const section = document.getElementById('password-update-section');
+                    if(section) section.style.display = e.target.checked ? 'block' : 'none';
+                };
+            }
 
-        // Password toggle
-        document.getElementById('toggle-password-update').addEventListener('change', (e) => {
-            const passwordSection = document.getElementById('password-update-section');
-            passwordSection.style.display = e.target.checked ? 'block' : 'none';
-        });
-
-        // Modal buttons
-        // FIXED: Pass the fetched profile data to the save function
-        document.getElementById('save-profile').addEventListener('click', () => saveUserProfile(profile)); 
-        document.getElementById('cancel-profile').addEventListener('click', closeProfileModal);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeProfileModal();
-        });
+            // SAVE BUTTON
+            const saveBtn = document.getElementById('save-profile');
+            if (saveBtn) {
+                saveBtn.onclick = function(e) {
+                    console.log("💾 Save button clicked!");
+                    e.preventDefault();
+                    saveUserProfile(profile);
+                };
+            } else {
+                console.error("❌ Save button not found!");
+            }
+        }, 100);
 
     } catch (err) {
         console.error("Error loading profile:", err);
-        showConfirmationPopup(`❌ Failed to load profile: ${err.message}`, true);
+        showConfirmationPopup(`❌ Error: ${err.message}`, true);
     }
 }
 
@@ -945,14 +933,6 @@ function previewProfileImage(event) {
     }
 }
 
-/**
- * Closes the main profile modal.
- */
-function closeProfileModal() {
-    const overlay = document.getElementById('profile-modal-overlay');
-    if (overlay) overlay.remove();
-    stagedAvatarFile = null; // Clear any staged file
-}
 
 /**
  * Gathers form data and initiates the save process
@@ -1024,7 +1004,7 @@ function showPasswordConfirmModal(updates) {
     const overlay = document.createElement('div');
     overlay.id = 'password-confirm-modal-overlay';
     overlay.className = 'modal-overlay active';
-    overlay.style.zIndex = '10001'; // Ensure it's on top
+    overlay.style.zIndex = '99999'; // HIGHER THAN PROFILE MODAL (which is 99000)
     
     overlay.innerHTML = `
         <div class="modal" style="max-width: 360px; border-radius: 12px; border: 2px solid #f1c40f;">
@@ -1171,7 +1151,8 @@ async function executeProfileUpdates(currentPassword, updates, closeConfirmModal
         // --- REVISED: Update state and modal UI, but keep modal open ---
         showConfirmationPopup("✅ Profile updated successfully!");
         closeConfirmModal(); // Close *only* the password modal
-        closeProfileModal(); // 👈 Close the main edit modal
+        // FIXED: Use the new window function
+        window.closeProfileModal(); // 👈 Close the main edit modal
 
         
         // Refresh profile displays across the app

@@ -1,6 +1,6 @@
 /*
 ================================================================================
-Notification Logic (notification.js)
+Notification Logic (notification.js) - Updated
 ================================================================================
 */
 
@@ -44,6 +44,24 @@ async function initializeNotifications() {
         renderError("System offline. Please check connection.");
         return;
     }
+
+    // ============================================================
+    // FIX: GUEST GUARD
+    // Check if user is authenticated before proceeding.
+    // ============================================================
+    const { data: { user } } = await window.supabase.auth.getUser();
+    
+    if (!user) {
+        // User is a Guest. Clear container (remove "Loading...") and STOP.
+        container.innerHTML = `
+            <div style="padding:20px; text-align:center; color:#666;">
+                <span class="material-symbols-outlined" style="font-size: 2rem; color: #ccc;">lock</span>
+                <p>Please log in to view notifications.</p>
+            </div>
+        `;
+        return; 
+    }
+    // ============================================================
 
     await fetchUserContext();
     await fetchAndProcessNotifications();
@@ -173,7 +191,7 @@ function processNotificationItem(item) {
 }
 
 function generateTitle(item, isUrgent) {
-    if (isUrgent) return `📅 Scheduled Maintenance`;
+    if (isUrgent) return `⚠️ Scheduled Maintenance`;
     return item.cause || 'Power Outage';
 }
 
@@ -208,9 +226,7 @@ function renderNotifications() {
     document.getElementById('notif-settings-btn').addEventListener('click', openSettingsModal);
 
     // 2. Sort
-    // Unread first? Or just Date? 
-    // User asked for "Seamless". Standard timeline is best, but Unread should be prominent.
-    // Let's do: Urgent Pinned -> Date Descending.
+    // Urgent Pinned -> Date Descending.
     const sorted = [...notifState.notifications].sort((a, b) => {
         if (a.isUrgent && !b.isUrgent) return -1; 
         if (!a.isUrgent && b.isUrgent) return 1;
@@ -331,7 +347,7 @@ function triggerPushNotifications() {
 
             if (shouldPush) {
                 sendBrowserNotification(
-                    notif.isUrgent ? `📅 Upcoming: ${notif.title}` : notif.title,
+                    notif.isUrgent ? `⚠️ Upcoming: ${notif.title}` : notif.title,
                     notif.message
                 );
                 notifState.pushedKeys.add(key);
