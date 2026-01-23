@@ -3,7 +3,7 @@
 // ==============================
 let reportSubscriptionChannel = null;
 let lastSubmissionTime = 0;
-const SUBMISSION_COOLDOWN = 30000; // 30 seconds
+const SUBMISSION_COOLDOWN = 60000; // 30 seconds
 let uploadedImages = []; // Array to store multiple images
 const MAX_IMAGES = 5;
 
@@ -53,27 +53,74 @@ async function waitForSupabase() {
 }
 
 // ==============================
-// Populate Barangay Dropdown
+// Populate Barangay Dropdown & Auto-Select
 // ==============================
 async function loadBarangays() {
   const barangaySelect = document.getElementById("barangay-select");
   if (!barangaySelect) return;
 
-  barangaySelect.innerHTML = `<option value="">Loading barangays...</option>`;
+  barangaySelect.innerHTML = `<option value="">Loading...</option>`;
 
   try {
     await waitForSupabase();
-    const { data, error } = await supabase.from("barangays").select("*").order("name", { ascending: true });
+
+    // 1. Fetch Barangay Options from DB
+    const { data: barangayList, error } = await supabase
+      .from("barangays")
+      .select("*")
+      .order("name", { ascending: true });
+
     if (error) throw error;
 
+    // 2. Populate the Dropdown
+    // We set value=ID and text=Name
     barangaySelect.innerHTML = `<option value="">Select Barangay</option>`;
-    data.forEach((barangay) => {
+    barangayList.forEach((barangay) => {
       const option = document.createElement("option");
-      option.value = barangay.id;
-      option.textContent = barangay.name;
+      option.value = barangay.id;      // The Database ID (e.g., 5)
+      option.textContent = barangay.name; // The Readable Name (e.g., "Irisan")
       barangaySelect.appendChild(option);
     });
-    console.log("✅ Barangays loaded:", data.length);
+
+    // 3. AUTO-SELECT LOGIC
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // Fetch the user's saved preference
+      // IMPORTANT: Ensure your table is named 'users' (or change to 'profiles' if needed)
+      const { data: userProfile } = await supabase
+        .from('profiles') 
+        .select('barangay') 
+        .eq('id', user.id)
+        .single();
+
+      if (userProfile && userProfile.barangay) {
+        const savedPreference = userProfile.barangay;
+        console.log("👤 User's Saved Barangay:", savedPreference);
+
+        // 4. Find and Select the Option
+        // We loop through options to support BOTH storage types (ID or Name)
+        let foundMatch = false;
+        
+        for (let i = 0; i < barangaySelect.options.length; i++) {
+          const option = barangaySelect.options[i];
+          
+          // Check 1: Does the saved value match the Option's ID? (e.g. 5 == 5)
+          // Check 2: Does the saved value match the Option's Name? (e.g. "Irisan" == "Irisan")
+          if (option.value == savedPreference || option.textContent === savedPreference) {
+            barangaySelect.selectedIndex = i;
+            foundMatch = true;
+            console.log(`✅ Auto-selected: "${option.textContent}"`);
+            break; // Stop looking once found
+          }
+        }
+
+        if (!foundMatch) {
+          console.warn(`⚠️ Could not find a dropdown option matching: "${savedPreference}"`);
+        }
+      }
+    }
+
   } catch (err) {
     console.error("Error loading barangays:", err);
     barangaySelect.innerHTML = `<option value="">Failed to load</option>`;
@@ -350,19 +397,55 @@ function initializeReportForm() {
   const imageInput = document.getElementById("image-input");
   
   if (imageUpload && imageInput) {
+    // --- NEW: Force Camera/Gallery Options on Mobile ---
+    // This attribute tells iOS/Android to show the "Take Photo or Photo Library" sheet
+    imageInput.setAttribute("accept", "image/*");
+    // Ensure 'capture' is NOT set, to allow Gallery choice
+    imageInput.removeAttribute("capture"); 
+    // Allow multiple files if they choose from gallery
+    imageInput.multiple = true; 
+
     // Remove existing event listeners to prevent duplicates
     imageUpload.replaceWith(imageUpload.cloneNode(true));
+    // ... rest of the function remains the same
     imageInput.replaceWith(imageInput.cloneNode(true));
     
     const newImageUpload = document.getElementById("image-upload");
     const newImageInput = document.getElementById("image-input");
 
+    // NEW CLICK LISTENER with Custom Modal
     newImageUpload.addEventListener("click", () => {
-      if (uploadedImages.length < MAX_IMAGES) {
-        newImageInput.click();
-      } else {
+      if (uploadedImages.length >= MAX_IMAGES) {
         alert(`Maximum ${MAX_IMAGES} images allowed`);
+        return;
       }
+
+      // Check if user is on Mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      // SCENARIO A: DESKTOP (No need to ask, just open file picker)
+      if (!isMobile) {
+        imageInput.removeAttribute("capture");
+        imageInput.setAttribute("multiple", "true");
+        newImageInput.click();
+        return;
+      }
+
+      // SCENARIO B: MOBILE (Ask "Camera or Gallery?")
+      showImageSourceModal((choice) => {
+        if (choice === 'camera') {
+          // Camera Mode: Force environment camera, single file
+          imageInput.removeAttribute("multiple");
+          imageInput.setAttribute("capture", "environment");
+        } else {
+          // Gallery Mode: Allow multiple files, remove capture enforcement
+          imageInput.removeAttribute("capture");
+          imageInput.setAttribute("multiple", "true");
+        }
+        
+        // Open the native picker with the applied settings
+        newImageInput.click();
+      });
     });
 
     newImageUpload.addEventListener("dragover", (e) => {
@@ -703,23 +786,24 @@ function resetReportForm() {
 // Submit Report
 // ==============================
 async function submitOutageReport() {
-  // Rate limiting check
+  // 1. Rate limiting check
   const now = Date.now();
   if (now - lastSubmissionTime < SUBMISSION_COOLDOWN) {
-    alert("Please wait 30 seconds before submitting another report");
+    alert(`Please wait a moment before submitting another report.`);
     return;
   }
 
-  // Online status check
+  // 2. Online status check
   if (!checkOnlineStatus()) return;
 
-  // Form validation
+  // 3. Form validation
   const validation = validateReportForm();
   if (!validation.isValid) {
     alert(validation.errors.join('\n'));
     return;
   }
 
+  // 4. Gather Data
   const barangay = document.getElementById("barangay-select").value;
   const outageTime = document.getElementById("outage-time").value;
   const cause = document.getElementById("selected-cause").value;
@@ -730,50 +814,94 @@ async function submitOutageReport() {
   const contactNumber = document.getElementById("contact-number")?.value || null;
   const sentimentScore = calculateReportSentiment(description);
 
+  // 5. Check Auth
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) {
     alert("Please log in to submit a report");
     return;
   }
 
-  const submitButton = document.getElementById("submit-report");
-  const originalText = submitButton.textContent;
-  
-  // Show loading state
-  submitButton.textContent = "Submitting...";
-  submitButton.disabled = true;
+  // --- START LOADING SCREEN ---
+  toggleLoadingScreen(true);
 
   try {
-    const { data: reportData, error: reportError } = await supabase
+    // 6. ROBUST DUPLICATE HANDLING (Try Insert -> Catch -> Update)
+    let finalReportData = null;
+
+    // STEP A: Try to INSERT a fresh report
+    const { data: insertedData, error: insertError } = await supabase
       .from("reports")
       .insert([{
         user_id: user.id,
         barangay: barangay,
         outage_time: outageTime,
-        cause,
-        description,
-        latitude,
-        longitude,
-        status: "pending",
-        sentiment_score: sentimentScore, 
+        cause: cause,
+        description: description,
+        latitude: latitude,
+        longitude: longitude,
+        status: "pending", 
+        sentiment_score: sentimentScore,
         contact_permission: contactPermission,
         contact_number: contactPermission ? contactNumber : null
       }])
       .select()
       .single();
 
-    if (reportError) throw reportError;
+    // STEP B: Check result
+    if (!insertError) {
+      // Success! New report created.
+      finalReportData = insertedData;
+    
+    } else if (insertError.code === '23505') {
+      // ERROR 23505 = "Unique Violation" (Duplicate Found)
+      // This means a pending report already exists. We should UPDATE it instead.
+      console.log("🔄 Duplicate detected. Updating existing pending report...");
 
-    // Upload multiple images
+      const { data: updatedData, error: updateError } = await supabase
+        .from("reports")
+        .update({
+          outage_time: outageTime,      // Refresh timestamp
+          description: description,     // Update description
+          latitude: latitude,           // Update location if changed
+          longitude: longitude,
+          sentiment_score: sentimentScore
+        })
+        .eq('user_id', user.id)
+        .eq('barangay', barangay)
+        .eq('cause', cause)
+        .eq('status', 'pending')        // STRICTLY target the pending one
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      finalReportData = updatedData;
+
+    } else {
+      // Some other real error (e.g., network, permission)
+      throw insertError;
+    }
+
+    // Assign to standard variable for the image upload section
+    const reportData = finalReportData;
+
+    // 7. Upload Images (if any)
     if (uploadedImages.length > 0) {
       for (const imageFile of uploadedImages) {
         const imagePath = `report_images/${user.id}/${reportData.id}/${Date.now()}_${imageFile.name}`;
-        const { error: uploadError } = await supabase.storage.from("report_images").upload(imagePath, imageFile);
+        
+        // Upload to Bucket
+        const { error: uploadError } = await supabase.storage
+          .from("report_images")
+          .upload(imagePath, imageFile);
+          
         if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage.from("report_images").getPublicUrl(imagePath);
+        // Get Public URL
+        const { data: publicUrlData } = supabase.storage
+          .from("report_images")
+          .getPublicUrl(imagePath);
 
+        // Link Image to Report
         await supabase.from("report_images").insert([{
           report_id: reportData.id,
           image_url: publicUrlData.publicUrl,
@@ -781,18 +909,20 @@ async function submitOutageReport() {
       }
     }
 
+    // 8. Success Cleanup
     lastSubmissionTime = now;
-    showConfirmationPopup("✅ Outage report submitted successfully!");
+    showConfirmationPopup("✅ Report submitted successfully!");
     resetReportForm();
     loadUserReports();
     showPage("report");
+
   } catch (err) {
     console.error("❌ Error submitting report:", err);
     alert("Failed to submit report. Please try again.");
+    
   } finally {
-    // Reset button state
-    submitButton.textContent = originalText;
-    submitButton.disabled = false;
+    // --- STOP LOADING SCREEN ---
+    toggleLoadingScreen(false);
   }
 }
 
@@ -956,7 +1086,8 @@ function setupKeyboardShortcuts() {
 }
 
 // ==============================
-// Page Switcher Helper
+// Page Switcher Helper 
+// Para sa feedback ni SIR DON to avoid re-initialization issues
 // ==============================
 function showPage(pageId) {
   document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
@@ -967,4 +1098,123 @@ function showPage(pageId) {
   if (pageId === "report-form") {
     initializeReportForm(); 
   }
+}
+
+// ==============================
+// Loading Screen Helper
+// ==============================
+function toggleLoadingScreen(show) {
+  let loader = document.getElementById('full-screen-loader');
+  
+  // Create it if it doesn't exist
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'full-screen-loader';
+    loader.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+    `;
+    loader.innerHTML = `
+      <div style="
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #f1c40f;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+      "></div>
+      <p style="margin-top: 15px; font-weight: bold; color: #333;">Submitting Report...</p>
+      <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+    `;
+    document.body.appendChild(loader);
+  }
+
+  // Toggle visibility
+  loader.style.display = show ? 'flex' : 'none';
+}
+
+// ==============================
+// Image Source Selection Modal (Camera vs Gallery)
+// ==============================
+function showImageSourceModal(onSelect) {
+  // 1. Create the Modal Elements
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 10001;
+    display: flex; justify-content: center; align-items: center;
+  `;
+
+  const box = document.createElement('div');
+  box.style.cssText = `
+    background: white; padding: 25px; border-radius: 12px;
+    width: 90%; max-width: 320px; text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  `;
+
+  // 2. Title
+  const title = document.createElement('h3');
+  title.innerText = "Upload Photo";
+  title.style.marginBottom = "20px";
+  title.style.color = "#333";
+
+  // 3. Camera Button
+  const cameraBtn = document.createElement('button');
+  cameraBtn.innerHTML = `<span class="material-symbols-outlined">photo_camera</span> Take Photo`;
+  cameraBtn.style.cssText = `
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 12px; margin-bottom: 10px;
+    background: #f1c40f; border: none; border-radius: 8px;
+    font-size: 16px; font-weight: bold; cursor: pointer; color: #fff;
+  `;
+  cameraBtn.onclick = () => {
+    onSelect('camera');
+    modal.remove();
+  };
+
+  // 4. Gallery Button
+  const galleryBtn = document.createElement('button');
+  galleryBtn.innerHTML = `<span class="material-symbols-outlined">image</span> Open Gallery`;
+  galleryBtn.style.cssText = `
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 12px; margin-bottom: 10px;
+    background: #eee; border: none; border-radius: 8px;
+    font-size: 16px; font-weight: bold; cursor: pointer; color: #333;
+  `;
+  galleryBtn.onclick = () => {
+    onSelect('gallery');
+    modal.remove();
+  };
+
+  // 5. Cancel Button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.innerText = "Cancel";
+  cancelBtn.style.cssText = `
+    width: 100%; padding: 10px; background: transparent;
+    border: none; color: #888; cursor: pointer; margin-top: 5px;
+  `;
+  cancelBtn.onclick = () => modal.remove();
+
+  // Assemble
+  box.appendChild(title);
+  box.appendChild(cameraBtn);
+  box.appendChild(galleryBtn);
+  box.appendChild(cancelBtn);
+  modal.appendChild(box);
+  document.body.appendChild(modal);
+  
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }
