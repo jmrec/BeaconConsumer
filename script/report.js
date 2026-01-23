@@ -383,7 +383,7 @@ function subscribeToReportUpdates(userId) {
 }
 
 // ==============================
-// Initialize Report Form
+// Initialize Report Form (Fixed: Dual Inputs for Camera/Gallery)
 // ==============================
 function initializeReportForm() {
   const causeButtons = document.querySelectorAll(".toggle-button");
@@ -398,87 +398,101 @@ function initializeReportForm() {
     });
   });
 
-  // Enhanced image upload handling
-  const imageUpload = document.getElementById("image-upload");
-  const imageInput = document.getElementById("image-input");
+  // --- ENHANCED IMAGE UPLOAD HANDLING ---
+  const imageUploadArea = document.getElementById("image-upload");
+  const originalInput = document.getElementById("image-input");
   
-  if (imageUpload && imageInput) {
-    // --- NEW: Force Camera/Gallery Options on Mobile ---
-    // This attribute tells iOS/Android to show the "Take Photo or Photo Library" sheet
-    imageInput.setAttribute("accept", "image/*");
-    // Ensure 'capture' is NOT set, to allow Gallery choice
-    imageInput.removeAttribute("capture"); 
-    // Allow multiple files if they choose from gallery
-    imageInput.multiple = true; 
+  if (imageUploadArea && originalInput) {
+    // 1. Clear old listeners by cloning the Upload Area
+    const newImageUploadArea = imageUploadArea.cloneNode(true);
+    imageUploadArea.replaceWith(newImageUploadArea);
 
-    // Remove existing event listeners to prevent duplicates
-    imageUpload.replaceWith(imageUpload.cloneNode(true));
-    // ... rest of the function remains the same
-    imageInput.replaceWith(imageInput.cloneNode(true));
-    
-    const newImageUpload = document.getElementById("image-upload");
-    const newImageInput = document.getElementById("image-input");
+    // 2. SETUP GALLERY INPUT (Existing)
+    // We clone it to clear old listeners and ensure a fresh start
+    const galleryInput = originalInput.cloneNode(true);
+    galleryInput.id = "image-input-gallery"; // Rename to avoid confusion
+    galleryInput.removeAttribute("capture");
+    galleryInput.setAttribute("accept", "image/*");
+    galleryInput.setAttribute("multiple", "true"); // Gallery allows multiple
 
-    // NEW CLICK LISTENER with Custom Modal
-    newImageUpload.addEventListener("click", () => {
+    // 3. SETUP CAMERA INPUT (New Hidden Input)
+    // This input is PERMANENTLY set to "Camera Mode"
+    const cameraInput = originalInput.cloneNode(true);
+    cameraInput.id = "image-input-camera";
+    cameraInput.removeAttribute("multiple");       // Camera only takes 1 at a time
+    cameraInput.setAttribute("accept", "image/*");
+    cameraInput.setAttribute("capture", "environment"); // FORCE REAR CAMERA
+    cameraInput.style.display = "none";
+
+    // 4. Inject both inputs into the DOM
+    originalInput.replaceWith(galleryInput);
+    galleryInput.parentNode.insertBefore(cameraInput, galleryInput.nextSibling);
+
+    // 5. Shared File Handler (Works for both inputs)
+    const handleFileSelect = (e) => {
+      // Handle the files
+      if (e.target.files.length > 0) {
+        // If multiple files (Gallery)
+        if (e.target.files.length > 1) {
+             Array.from(e.target.files).forEach(file => {
+                 if (uploadedImages.length < MAX_IMAGES) handleImageUpload(file);
+             });
+        } 
+        // If single file (Camera or Single Gallery)
+        else {
+             if (uploadedImages.length < MAX_IMAGES) handleImageUpload(e.target.files[0]);
+        }
+      }
+      // Reset value so the same file can be selected again if needed
+      e.target.value = ''; 
+    };
+
+    // Attach handler to BOTH inputs
+    galleryInput.addEventListener("change", handleFileSelect);
+    cameraInput.addEventListener("change", handleFileSelect);
+
+    // 6. Click Listener for the Upload Box
+    newImageUploadArea.addEventListener("click", () => {
       if (uploadedImages.length >= MAX_IMAGES) {
         alert(`Maximum ${MAX_IMAGES} images allowed`);
         return;
       }
 
-      // Check if user is on Mobile
+      // Check Mobile
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      // SCENARIO A: DESKTOP (No need to ask, just open file picker)
+      // DESKTOP: Just open Gallery (Camera not needed usually)
       if (!isMobile) {
-        imageInput.removeAttribute("capture");
-        imageInput.setAttribute("multiple", "true");
-        newImageInput.click();
+        galleryInput.click();
         return;
       }
 
-      // SCENARIO B: MOBILE (Ask "Camera or Gallery?")
+      // MOBILE: Show Custom Modal
       showImageSourceModal((choice) => {
         if (choice === 'camera') {
-          // Camera Mode: Force environment camera, single file
-          imageInput.removeAttribute("multiple");
-          imageInput.setAttribute("capture", "environment");
+          console.log("📸 Opening Camera Input...");
+          cameraInput.click(); // <--- HITS THE DEDICATED CAMERA INPUT
         } else {
-          // Gallery Mode: Allow multiple files, remove capture enforcement
-          imageInput.removeAttribute("capture");
-          imageInput.setAttribute("multiple", "true");
+          console.log("🖼️ Opening Gallery Input...");
+          galleryInput.click(); // <--- HITS THE DEDICATED GALLERY INPUT
         }
-        
-        // Open the native picker with the applied settings
-        newImageInput.click();
       });
     });
 
-    newImageUpload.addEventListener("dragover", (e) => {
+    // 7. Drag and Drop Support (Desktop)
+    newImageUploadArea.addEventListener("dragover", (e) => {
       e.preventDefault();
-      newImageUpload.classList.add("dragover");
+      newImageUploadArea.classList.add("dragover");
     });
-
-    newImageUpload.addEventListener("dragleave", () => {
-      newImageUpload.classList.remove("dragover");
+    newImageUploadArea.addEventListener("dragleave", () => {
+      newImageUploadArea.classList.remove("dragover");
     });
-
-    newImageUpload.addEventListener("drop", (e) => {
+    newImageUploadArea.addEventListener("drop", (e) => {
       e.preventDefault();
-      newImageUpload.classList.remove("dragover");
+      newImageUploadArea.classList.remove("dragover");
       if (uploadedImages.length < MAX_IMAGES) {
         handleImageUpload(e.dataTransfer.files[0]);
       } else {
-        alert(`Maximum ${MAX_IMAGES} images allowed`);
-      }
-    });
-
-    newImageInput.addEventListener("change", (e) => {
-      if (e.target.files.length > 0 && uploadedImages.length < MAX_IMAGES) {
-        handleImageUpload(e.target.files[0]);
-        // Clear the input to allow selecting the same file again
-        e.target.value = '';
-      } else if (uploadedImages.length >= MAX_IMAGES) {
         alert(`Maximum ${MAX_IMAGES} images allowed`);
       }
     });
@@ -518,32 +532,31 @@ function initializeReportForm() {
     });
   }
 
-  // NEW: Call Permission & Auto-fill Logic
-const contactToggle = document.getElementById("contact-permission-toggle");
-const phoneContainer = document.getElementById("phone-input-container");
-const phoneInput = document.getElementById("contact-number");
+  // Contact Permission Logic
+  const contactToggle = document.getElementById("contact-permission-toggle");
+  const phoneContainer = document.getElementById("phone-input-container");
+  const phoneInput = document.getElementById("contact-number");
 
-if (contactToggle) {
-    contactToggle.addEventListener("change", () => {
-        if (contactToggle.checked) {
-            phoneContainer.style.display = "block";
-            
-            // Auto-fill from global user state if phone number exists in profile
-            const auth = getAuthState(); // Function from global.js
-            if (auth.user && auth.user.mobile) {
-                phoneInput.value = auth.user.mobile;
-            }
-        } else {
-            phoneContainer.style.display = "none";
-            phoneInput.value = ""; // Clear if disabled
-        }
-    });
-}
+  if (contactToggle) {
+      contactToggle.addEventListener("change", () => {
+          if (contactToggle.checked) {
+              phoneContainer.style.display = "block";
+              // Auto-fill logic
+              const auth = getAuthState ? getAuthState() : null;
+              if (auth && auth.user && auth.user.mobile) {
+                  phoneInput.value = auth.user.mobile;
+              }
+          } else {
+              phoneContainer.style.display = "none";
+              phoneInput.value = "";
+          }
+      });
+  }
 
+  // Submit & Cancel Buttons
   const submitButton = document.getElementById("submit-report");
   if (submitButton) submitButton.addEventListener("click", submitOutageReport);
 
-  // Add Cancel button
   const existingCancel = document.getElementById("cancel-report");
   if (!existingCancel && submitButton) {
     const cancelBtn = document.createElement("button");
@@ -552,15 +565,8 @@ if (contactToggle) {
     cancelBtn.type = "button";
     cancelBtn.classList.add("cancel-button");
     cancelBtn.style.cssText = `
-      margin-top:10px;
-      width:100%;
-      padding:10px;
-      background:#eee;
-      color:#333;
-      border:none;
-      border-radius:8px;
-      font-weight:bold;
-      cursor:pointer;
+      margin-top:10px; width:100%; padding:10px; background:#eee;
+      color:#333; border:none; border-radius:8px; font-weight:bold; cursor:pointer;
     `;
     submitButton.insertAdjacentElement("afterend", cancelBtn);
 
