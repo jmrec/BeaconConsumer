@@ -143,13 +143,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   supabase.auth.onAuthStateChange((event, session) => {
     console.log("Auth event:", event);
     if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      // 1. Existing code loads reports...
       loadUserReports();
       subscribeToReportUpdates(session.user.id);
+      
+      loadBarangays(); 
+    
     } else if (event === 'SIGNED_OUT') {
       const container = document.getElementById("user-reports-container");
+
       if (container) {
           container.innerHTML = `<p>Please log in to see your reports.</p>`;
       }
+
       if (reportSubscriptionChannel) {
         supabase.removeChannel(reportSubscriptionChannel);
         reportSubscriptionChannel = null;
