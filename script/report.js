@@ -9,7 +9,6 @@ const MAX_IMAGES = 5;
 
 /**
  * BEACON Sentiment Scoring Engine
- * Revised with Taglish reliability, impact, and support phrases.
  */
 function calculateReportSentiment(text) {
     const content = text.toLowerCase();
@@ -53,18 +52,21 @@ async function waitForSupabase() {
 }
 
 // ==============================
-// Populate Barangay Dropdown & Auto-Select
+// Populate Barangay Dropdown (Safe Mode)
 // ==============================
 async function loadBarangays() {
   const barangaySelect = document.getElementById("barangay-select");
-  if (!barangaySelect) return;
+  
+  // 🛑 STOP: If the dropdown isn't on this page (e.g., we are on Profile), exit immediately.
+  if (!barangaySelect) return; 
 
+  // Reset to loading state
   barangaySelect.innerHTML = `<option value="">Loading...</option>`;
 
   try {
     await waitForSupabase();
 
-    // 1. Fetch Barangay Options from DB
+    // 1. Fetch Barangay List (Always fetch fresh to avoid sync issues)
     const { data: barangayList, error } = await supabase
       .from("barangays")
       .select("*")
@@ -72,22 +74,20 @@ async function loadBarangays() {
 
     if (error) throw error;
 
-    // 2. Populate the Dropdown
-    // We set value=ID and text=Name
+    // 2. Populate Dropdown
     barangaySelect.innerHTML = `<option value="">Select Barangay</option>`;
     barangayList.forEach((barangay) => {
       const option = document.createElement("option");
-      option.value = barangay.id;      // The Database ID (e.g., 5)
-      option.textContent = barangay.name; // The Readable Name (e.g., "Irisan")
+      option.value = barangay.id;      
+      option.textContent = barangay.name; 
       barangaySelect.appendChild(option);
     });
 
-    // 3. AUTO-SELECT LOGIC
+    // 3. Auto-Select (Only if user is logged in)
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
-      // Fetch the user's saved preference
-      // IMPORTANT: Ensure your table is named 'users' (or change to 'profiles' if needed)
+      // Note: We use 'profiles' table. If your Profile Page uses 'users', ensure they match!
       const { data: userProfile } = await supabase
         .from('profiles') 
         .select('barangay') 
@@ -95,35 +95,24 @@ async function loadBarangays() {
         .single();
 
       if (userProfile && userProfile.barangay) {
-        const savedPreference = userProfile.barangay;
-        console.log("👤 User's Saved Barangay:", savedPreference);
-
-        // 4. Find and Select the Option
-        // We loop through options to support BOTH storage types (ID or Name)
-        let foundMatch = false;
+        const savedValue = userProfile.barangay;
         
+        // Loop to find match
         for (let i = 0; i < barangaySelect.options.length; i++) {
           const option = barangaySelect.options[i];
-          
-          // Check 1: Does the saved value match the Option's ID? (e.g. 5 == 5)
-          // Check 2: Does the saved value match the Option's Name? (e.g. "Irisan" == "Irisan")
-          if (option.value == savedPreference || option.textContent === savedPreference) {
+          if (option.value == savedValue || option.textContent === savedValue) {
             barangaySelect.selectedIndex = i;
-            foundMatch = true;
-            console.log(`✅ Auto-selected: "${option.textContent}"`);
-            break; // Stop looking once found
+            break; 
           }
-        }
-
-        if (!foundMatch) {
-          console.warn(`⚠️ Could not find a dropdown option matching: "${savedPreference}"`);
         }
       }
     }
-
   } catch (err) {
-    console.error("Error loading barangays:", err);
-    barangaySelect.innerHTML = `<option value="">Failed to load</option>`;
+    // Silent fail on other pages, loud error on Report page
+    if (barangaySelect) {
+        console.error("Error loading barangays:", err);
+        barangaySelect.innerHTML = `<option value="">Failed to load</option>`;
+    }
   }
 }
 
@@ -141,19 +130,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   // Listen for authentication changes
   supabase.auth.onAuthStateChange((event, session) => {
+    // 🛑 ISOLATION CHECK: 
+    // Are we actually on the Report Page? If not, do NOTHING.
+    const reportContainer = document.getElementById("user-reports-container");
+    const barangaySelect = document.getElementById("barangay-select");
+    
+    // If these elements don't exist, we are likely on the Profile page. Stop here.
+    if (!reportContainer && !barangaySelect) {
+        return; 
+    }
+
     console.log("Auth event:", event);
+
     if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-      // 1. Existing code loads reports...
       loadUserReports();
       subscribeToReportUpdates(session.user.id);
-      
       loadBarangays(); 
     
     } else if (event === 'SIGNED_OUT') {
-      const container = document.getElementById("user-reports-container");
-
-      if (container) {
-          container.innerHTML = `<p>Please log in to see your reports.</p>`;
+      if (reportContainer) {
+          reportContainer.innerHTML = `<p>Please log in to see your reports.</p>`;
       }
 
       if (reportSubscriptionChannel) {
