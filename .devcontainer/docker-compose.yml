@@ -1,0 +1,19 @@
+networks:
+  beacon-dev:
+    external: true
+
+services:
+  ian_consumer:
+    container_name: ian_consumer
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app:cached
+      - vscode-extension:/root/.vscode-server-insiders
+    command: sleep infinity
+    networks:
+      - beacon-dev
+
+volumes:
+  vscode-extension:

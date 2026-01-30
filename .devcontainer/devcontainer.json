@@ -1,0 +1,36 @@
+{
+    "name": "Ian Consumer",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "ian_consumer",
+    "workspaceFolder": "/app",
+    "mounts": [
+        "source=${localEnv:HOME}/.gitconfig,target=/home/debian/.gitconfig,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.ssh/id_ed25519,target=/home/debian/.ssh/id_ed25519,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.ssh/id_ed25519_signing,target=/home/debian/.ssh/id_ed25519_signing,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.ssh/id_ed25519_signing.pub,target=/home/debian/.ssh/id_ed25519_signing.pub,type=bind,consistency=cached"
+    ],
+    "forwardPorts": [3070],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "vue.volar",
+                "vue.vscode-typescript-vue-plugin",
+                "nuxt.nvidia-nuxt",
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "formulahendry.auto-rename-tag",
+                "bradlc.vscode-tailwindcss",
+                "oderwat.indent-rainbow",
+                "mhutchie.git-graph",
+                "ecmel.vscode-html-css",
+                "ms-vscode.vscode-typescript-next",
+                "stivo.tailwind-fold"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "editor.formatOnSave": true,
+                "vue.features.splitEditors.enabled": true
+            }
+        }
+    }
+}
