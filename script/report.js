@@ -10,29 +10,43 @@ const MAX_IMAGES = 5;
 /**
  * BEACON Sentiment Scoring Engine
  */
-function calculateReportSentiment(text) {
-    const content = text.toLowerCase();
-    let score = 0;
+async function calculateReportSentiment(text) {
+  const SERVER_URL = "https://analysis.jmcodes.com";
 
-    // --- KEYWORDS (Individual words are better than long phrases) ---
-    const critical = ["consistent", "consistent", "Paulit-ulit", "ulit", "Nakakainis", "Sunog", "Nag-spark", "sparking", "umaapoy", "sumabog", "nanaman", "umay", "buset", "putik", "gago", "potangna", "binalik", "binawi", "brownout", "wala", "service", "2026"];
-    const workImpact = ["hanap-buhay", "wfh", "online", "teaching", "call center", "trabaho", "night shift"];
-    const damage = ["masisira", "appliances", "gamit", "surge", "airfryer", "kanin"];
-    const positive = ["heroes", "salamat", "meron na", "may ilaw", "finally", "ayos", "grateful", "thank you", "ingat", "good job", "safe"];
+  try {
+    const response = await fetch(`${SERVER_URL}/reports/sentiment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ description: text }),
+    });
 
-    // --- SCORING ---
-    critical.forEach(p => { if (content.includes(p)) score -= 3; });
-    workImpact.forEach(p => { if (content.includes(p)) score -= 5; });
-    damage.forEach(p => { if (content.includes(p)) score -= 4; });
-    positive.forEach(p => { if (content.includes(p)) score += 5; });
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
 
-    // Clamp for smallint DB column
-    const finalScore = Math.max(-10, Math.min(10, score));
-    
-    // DEBUG LOG: This will show you the score in the browser console
-    console.log(`📝 Sentiment Analysis: "${text}" | Result: ${finalScore}`);
-    
-    return finalScore;
+    const data = await response.json();
+    let score = Math.round(data.confidence_score * 100);
+    switch (data.category.toLowerCase()) {
+      case "negative":
+        score = -score;
+        break;
+      case "neutral":
+        score = 0;
+        break;
+      default:
+        break;
+    }
+
+    console.log(
+      `📝 Server Sentiment: "${text}" | Category: ${data.category} | Result: ${score}`,
+    );
+    return score;
+  } catch (error) {
+    console.error("❌ Sentiment Analysis Failed:", error);
+    return 0;
+  }
 }
 
 // ==============================
@@ -820,7 +834,7 @@ async function submitOutageReport() {
   const longitude = document.getElementById("longitude")?.value || null;
   const contactPermission = document.getElementById("contact-permission-toggle")?.checked || false;
   const contactNumber = document.getElementById("contact-number")?.value || null;
-  const sentimentScore = calculateReportSentiment(description);
+  const sentimentScore = await calculateReportSentiment(description);
 
   // 5. Check Auth
   const { data: { user } } = await supabase.auth.getUser();
