@@ -11,7 +11,7 @@ const MAX_IMAGES = 5;
  * BEACON Sentiment Scoring Engine
  */
 async function calculateReportSentiment(text) {
-  const SERVER_URL = "https://analysis.jmcodes.com";
+  const SERVER_URL = "https://analysis.jmrecondo.com";
 
   try {
     const response = await fetch(`${SERVER_URL}/reports/sentiment`, {
