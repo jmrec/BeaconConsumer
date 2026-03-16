@@ -1,0 +1,296 @@
+<main class="page active" x-data="beaconApp" x-init="init()">
+  <div class="search-container">
+    <span class="material-symbols-outlined search-icon">search</span>
+    <input
+      type="text"
+      x-model="searchTerm"
+      class="search-input"
+      placeholder="Search outages, feeder, area..."
+    />
+  </div>
+
+  <div class="filter-container">
+    <input type="date" x-model="dateFilter" class="filter-select" />
+    <select x-model="statusFilter" class="filter-select">
+      <option value="">All Status</option>
+      <option>Reported</option>
+      <option>Ongoing</option>
+      <option>Completed</option>
+    </select>
+  </div>
+
+  <h2 class="section-title">Recent Outages</h2>
+
+  <div class="reports-grid" id="reports-container">
+    <template x-if="processedAnnouncements.length === 0 && !loading">
+      <div class="empty-state">
+        <span class="material-symbols-outlined">campaign</span>
+        <p>No announcements available</p>
+      </div>
+    </template>
+
+    <template x-if="$store.data.announcements.length === 0 && loading">
+      <p style="text-align: center; padding: 20px">Loading announcements...</p>
+    </template>
+
+    <template x-for="announcement in processedAnnouncements" :key="announcement.id">
+      <div
+        class="announcement-card"
+        :id="'announcement-' + announcement.id"
+        @click="openDetails(announcement)"
+        x-transition
+      >
+        <div
+          class="card-header"
+          style="
+            padding: 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+          "
+        >
+          <div>
+            <h3
+              style="margin: 0; font-size: 1rem; color: #333; line-height: 1.4"
+              x-text="`${announcement.cause || 'Power Outage'} at ${announcement.location || 'Area'}`"
+            ></h3>
+            <p
+              style="margin: 4px 0 0 0; font-size: 0.8rem; color: #777"
+              x-text="'Posted: ' + formatDate(announcement.created_at)"
+            ></p>
+          </div>
+          <template x-if="isUserArea(announcement)">
+            <span
+              style="
+                background: #e6f7ff;
+                border: 1px solid #91d5ff;
+                color: #096dd9;
+                font-size: 0.7rem;
+                font-weight: 600;
+                padding: 4px 8px;
+                border-radius: 12px;
+                flex-shrink: 0;
+              "
+              >Your Area</span
+            >
+          </template>
+        </div>
+
+        <div
+          class="card-details-grid"
+          style="padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
+        >
+          <div>
+            <span
+              style="
+                font-size: 0.7rem;
+                color: #888;
+                display: block;
+                text-transform: uppercase;
+                margin-bottom: 2px;
+              "
+              >Feeder</span
+            >
+            <span
+              style="font-size: 0.85rem; color: #333; display: block; font-weight: 500"
+              x-text="announcement.feeders?.name || 'N/A'"
+            ></span>
+          </div>
+          <div>
+            <span
+              style="
+                font-size: 0.7rem;
+                color: #888;
+                display: block;
+                text-transform: uppercase;
+                margin-bottom: 2px;
+              "
+              >Type</span
+            >
+            <span
+              style="font-size: 0.85rem; color: #333; display: block; font-weight: 500"
+              x-text="formatStatus(announcement.type)"
+            ></span>
+          </div>
+          <div>
+            <span
+              style="
+                font-size: 0.7rem;
+                color: #888;
+                display: block;
+                text-transform: uppercase;
+                margin-bottom: 2px;
+              "
+              >Area</span
+            >
+            <span
+              style="font-size: 0.85rem; color: #333; display: block; font-weight: 500"
+              x-text="announcement.barangay || 'N/A'"
+            ></span>
+          </div>
+          <div>
+            <span
+              style="
+                font-size: 0.7rem;
+                color: #888;
+                display: block;
+                text-transform: uppercase;
+                margin-bottom: 2px;
+              "
+              >Status</span
+            >
+            <span
+              :class="'status-pill status-' + (announcement.status || '').toLowerCase()"
+              x-text="announcement.status || 'Unknown'"
+              style="
+                font-size: 0.75rem;
+                font-weight: 600;
+                padding: 3px 10px;
+                border-radius: 12px;
+                display: inline-block;
+              "
+            ></span>
+          </div>
+        </div>
+
+        <template x-if="announcement.announcement_images?.[0]">
+          <div
+            class="card-image-container"
+            style="width: 100%; max-height: 70vh; overflow: hidden; background: #f0f0f0"
+          >
+            <img
+              :src="announcement.announcement_images[0].image_url"
+              style="width: 100%; height: auto; display: block; cursor: pointer"
+            />
+          </div>
+        </template>
+
+        <div style="padding: 20px; border-top: 1px solid #f0f0f0">
+          <p
+            style="
+              margin: 0;
+              color: #555;
+              font-size: 0.9rem;
+              line-height: 1.5;
+              word-break: break-word;
+              white-space: pre-line;
+              cursor: pointer;
+            "
+            x-text="getShortDescription(announcement.description)"
+          ></p>
+        </div>
+
+        <div
+          class="card-footer"
+          style="padding: 10px 16px; border-top: 1px solid #f0f0f0; background: #fafafa"
+        >
+          <button
+            class="share-button"
+            style="
+              background: none;
+              border: none;
+              cursor: pointer;
+              padding: 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              font-size: 0.85rem;
+              color: #555;
+              font-weight: 600;
+              border-radius: 6px;
+              width: 100%;
+            "
+            @click.stop="shareItem(announcement)"
+          >
+            <span class="material-symbols-outlined" style="font-size: 1.1rem">share</span>Share
+          </button>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <template x-if="selectedItem">
+    <div class="report-modal" @click.self="selectedItem = null" x-transition>
+      <div
+        class="modal-content"
+        style="
+          background: #fff;
+          width: 100%;
+          max-width: 600px;
+          border-radius: 16px;
+          overflow: hidden;
+          position: relative;
+        "
+      >
+        <button
+          class="modal-close"
+          @click="selectedItem = null"
+          style="position: absolute; top: 15px; right: 15px; z-index: 10"
+        >
+          ✕
+        </button>
+        <img
+          x-show="selectedItem.announcement_images?.[0]"
+          :src="selectedItem.announcement_images?.[0]?.image_url"
+          style="width: 100%; max-height: 300px; object-fit: cover"
+        />
+        <div style="padding: 24px">
+          <h2 x-text="selectedItem.cause" style="margin: 0 0 10px 0"></h2>
+          <p x-text="selectedItem.description" style="color: #555; line-height: 1.6"></p>
+          <template x-if="selectedItem.latitude">
+            <button
+              @click="goToMap(selectedItem)"
+              class="btn-map"
+              style="
+                width: 100%;
+                padding: 12px;
+                background: #f1c40f;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+                margin-top: 20px;
+                cursor: pointer;
+              "
+            >
+              View Location on Map
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <style>
+    .announcement-card {
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto 16px auto;
+    }
+    .status-pill.status-reported {
+      background-color: #ffebe6;
+      color: #d93026;
+    }
+    .status-pill.status-ongoing {
+      background-color: #e6f4ea;
+      color: #1e8e3e;
+    }
+    .status-pill.status-completed {
+      background-color: #e6f4ea;
+      color: #1e8e3e;
+    }
+    .status-pill.status-unknown,
+    .status-pill.status-scheduled,
+    .status-pill.status-unscheduled {
+      background-color: #f1f3f4;
+      color: #5f6368;
+    }
+  </style>
+</main>

@@ -1,108 +1,187 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendar - Beacon</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#FFE033">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
-</head>
-<body>
-    <nav class="desktop-nav">
-        <div class="user-profile">
-            <div class="user-avatar">JS</div>
-            <div class="user-info">
-                <h3>John Smith</h3>
-                <p>User</p>
-            </div>
+<main x-data="calendarApp" x-init="init()" class="page active">
+  <div class="calendar-container" x-cloak>
+    <div class="calendar-header">
+      <div class="calendar-nav">
+        <span class="calendar-year-text" x-text="currentYear"></span>
+        <div class="calendar-month-row">
+          <button class="nav-btn" @click="changeMonth(-1)">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+          <h2 x-text="monthNames[currentMonth]"></h2>
+          <button class="nav-btn" @click="changeMonth(1)">
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
         </div>
-        <ul class="desktop-nav-menu">
-            <li class="desktop-nav-item" data-page="dashboard">
-                <a href="index.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">dashboard</span>
-                <span>Dashboard</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item active" data-page="calendar">
-                <span class="material-symbols-outlined desktop-nav-icon">calendar_month</span>
-                <span>Calendar</span>
-            </li>
-            <li class="desktop-nav-item" data-page="report">
-                <a href="report.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">report</span>
-                <span>Report</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item" data-page="map">
-                <a href="map.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">map</span>
-                <span>Map</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item" data-page="notification">
-                <a href="notification.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">notifications</span>
-                <span>Notifications</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
-
-    <div class="content-area">
-        <header>
-            <div class="logo">Beacon</div>
-            <div class="profile-icon">JS</div>
-        </header>
-
-        <main class="page active" id="calendar">
-            <div class="calendar-container">
-                <div class="calendar-header">
-                    <div class="calendar-nav">
-                        <button id="prev-month"><span class="material-symbols-outlined">chevron_left</span></button>
-                        <h2 id="current-month">October 2025</h2>
-                        <button id="next-month"><span class="material-symbols-outlined">chevron_right</span></button>
-                    </div>
-                </div>
-                <div class="calendar-grid" id="calendar-days">
-                    </div>
-            </div>
-
-            <h2 class="section-title" id="selected-date-title">Outages for October 27, 2025</h2>
-            <div id="date-reports-container">
-                </div>
-        </main>
+      </div>
+      <div class="today-btn" style="cursor: pointer" @click="goToToday()">Return to Today</div>
     </div>
 
-    <nav class="bottom-nav">
-        <a href="index.html" class="nav-item" data-page="dashboard">
-            <span class="material-symbols-outlined nav-icon">dashboard</span>
-            <span>Dashboard</span>
-        </a>
-        <a class="nav-item active" data-page="calendar">
-            <span class="material-symbols-outlined nav-icon">calendar_month</span>
-            <span>Calendar</span>
-        </a>
-        <a href="report.html" class="nav-item" data-page="report">
-            <span class="material-symbols-outlined nav-icon">report</span>
-            <span>Report</span>
-        </a>
-        <a href="map.html" class="nav-item" data-page="map">
-            <span class="material-symbols-outlined nav-icon">map</span>
-            <span>Map</span>
-        </a>
-        <a href="notification.html" class="nav-item" data-page="notification">
-            <span class="material-symbols-outlined nav-icon">notifications</span>
-            <span>Notifications</span>
-        </a>
-    </nav>
+    <div
+      class="calendar-day-names"
+      style="
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-weight: bold;
+        padding: 10px 0;
+        color: #666;
+        font-size: 0.8rem;
+      "
+    >
+      <div>SUN</div>
+      <div>MON</div>
+      <div>TUE</div>
+      <div>WED</div>
+      <div>THU</div>
+      <div>FRI</div>
+      <div>SAT</div>
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-    <script src="script/global.js"></script>
-    <script src="script/calendar.js"></script>
-    
-</body>
-</html>
+    <div class="calendar-grid">
+      <template x-for="blank in blankDays">
+        <div class="calendar-day empty"></div>
+      </template>
+
+      <template x-for="day in daysInMonth" :key="day.dateString">
+        <div
+          class="calendar-day"
+          :class="{ 
+                        'current': day.isToday, 
+                        'selected': isSelected(day.date),
+                        'has-outage': day.outages.length > 0 
+                     }"
+          @click="selectDate(day.date)"
+        >
+          <span class="day-number" x-text="day.dayNum"></span>
+
+          <template x-if="day.outages.length > 0">
+            <div class="outage-indicators">
+              <div class="mobile-outage-dot"></div>
+              <template x-for="outage in day.outages">
+                <div class="outage-pill" x-text="formatTime(outage.scheduled_at) + ' Sch.'"></div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <section class="outage-details-section">
+    <h2 class="section-title" x-text="getDetailsTitle()"></h2>
+
+    <div id="date-reports-container">
+      <template x-if="isLoading">
+        <div class="no-outages-message">Loading schedule...</div>
+      </template>
+
+      <template x-if="!isLoading && selectedDateOutages.length === 0">
+        <div class="no-outages-message">No scheduled outages for this date.</div>
+      </template>
+
+      <template x-for="outage in selectedDateOutages" :key="outage.id">
+        <div class="outage-card">
+          <div class="card-header">
+            <div>
+              <span class="outage-type-badge">Scheduled Maintenance</span>
+              <h3 class="outage-title" x-text="outage.description || 'System Maintenance'"></h3>
+            </div>
+            <span class="status-pill" x-text="outage.status || 'Scheduled'"></span>
+          </div>
+
+          <div class="card-body">
+            <div class="info-row">
+              <span class="material-symbols-outlined">location_on</span>
+              <span x-text="outage.location || outage.barangay || 'Multiple Areas'"></span>
+            </div>
+            <div class="info-row">
+              <span class="material-symbols-outlined">schedule</span>
+              <span>
+                <strong x-text="formatTime(outage.scheduled_at)"></strong>
+                <span
+                  x-show="outage.estimated_restoration_at"
+                  x-text="' - ' + formatTime(outage.estimated_restoration_at)"
+                ></span>
+              </span>
+            </div>
+          </div>
+
+          <template x-if="outage.areas_affected?.length > 0">
+            <div class="areas-container">
+              <strong>Affected Areas:</strong>
+              <span x-text="outage.areas_affected.join(', ')"></span>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <style>
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background: #eee;
+      border: 1px solid #eee;
+    }
+    .calendar-day {
+      background: #fff;
+      min-height: 80px;
+      padding: 5px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .calendar-day:hover {
+      background: #fffdf0;
+    }
+    .calendar-day.selected {
+      background: #fff9c4 !important;
+      border: 2px solid #f1c40f;
+    }
+    .calendar-day.current .day-number {
+      background: #f1c40f;
+      color: #000;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .day-number {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .mobile-outage-dot {
+      display: none;
+      width: 6px;
+      height: 6px;
+      background: #e74c3c;
+      border-radius: 50%;
+      margin: 4px auto;
+    }
+    .outage-pill {
+      font-size: 0.65rem;
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 2px 4px;
+      border-radius: 4px;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    @media (max-width: 600px) {
+      .calendar-day {
+        min-height: 50px;
+      }
+      .outage-pill {
+        display: none;
+      }
+      .mobile-outage-dot {
+        display: block;
+      }
+    }
+  </style>
+</main>

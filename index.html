@@ -1,232 +1,110 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Beacon - Power Outage Tracker</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#FFE033">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
-</head>
-<body x-data="beaconApp" x-init="init()">
-  <nav class="desktop-nav">
-    <div class="user-profile">
-      <div class="user-avatar">
-        <template x-if="$store.auth.user?.avatar">
-          <img :src="$store.auth.user.avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">
-        </template>
-        <template x-else>
-          <span x-text="$store.auth.user?.initials || '?'"></span>
-        </template>
-      </div>
-      
-      <div class="user-info">
-        <h3 x-text="$store.auth.user ? ($store.auth.user.firstName + ' ' + $store.auth.user.lastName) : 'Guest User'">Guest</h3>
-        <p x-text="$store.auth.isGuest ? 'Guest' : 'User'">Public</p>
-      </div>
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beacon - Power Outage Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#FFE033" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script/global.js"></script>
+    <script src="script/dashboard.js"></script>
+    <script src="script/report.js"></script>
+    <script src="script/calendar.js"></script>
+    <script src="script/map.js"></script> </head>
+    <script src="script/notification.js"></script>
+  </head>
 
-    <ul class="desktop-nav-menu">
-      <template x-for="item in navItems" :key="item.id">
-        <li>
-          <a class="desktop-nav-item" :class="{ 'active': $store.ui.currentPage === item.url }" :href="item.url" @click="showPage(item.id)">
-            <span class="material-symbols-outlined desktop-nav-icon" x-text="item.icon"></span>
-            <span x-text="item.label"></span>
-          </a>
-        </li>
-      </template>
-    </ul>
-  </nav>
-
-  <div class="content-area">
-    <header x-data>
-      <div class="logo">Beacon</div>
-      <div class="profile-icon" @click="toggleProfileMenu($event)" style="cursor: pointer; overflow: hidden;">
-        <template x-if="$store.auth.user?.avatar">
-          <img :src="$store.auth.user.avatar" 
-            alt="Profile" 
-            style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
-        </template>
-
-        <template x-if="!$store.auth.user?.avatar">
-          <span x-text="$store.auth.user?.initials || '?'"></span>
-        </template>
-      </div>
-    </header>
-
-    <main class="page" :class="{ 'active': currentPage === 'dashboard' }">
-      <div class="search-container">
-        <span class="material-symbols-outlined search-icon">search</span>
-        <input type="text" x-model="searchTerm" class="search-input" placeholder="Search outages, feeder, area...">
-      </div>
-
-      <div class="filter-container">
-        <input type="date" x-model="dateFilter" class="filter-select">
-        <select x-model="statusFilter" class="filter-select">
-          <option value="">All Status</option>
-          <option>Reported</option>
-          <option>Ongoing</option>
-          <option>Completed</option>
-        </select>
-      </div>
-
-      <h2 class="section-title">Recent Outages</h2>
-      
-      <div class="reports-grid" id="reports-container">
-        <template x-if="processedAnnouncements.length === 0 && !loading">
-          <div class="empty-state">
-            <span class="material-symbols-outlined">campaign</span>
-            <p>No announcements available</p>
-          </div>
-        </template>
-
-        <template x-if="loading">
-          <p style="text-align: center; padding: 20px;">Loading announcements...</p>
-        </template>
-
-        <template x-for="announcement in processedAnnouncements" :key="announcement.id">
-          <div class="announcement-card" :id="'announcement-' + announcement.id" @click="openDetails(announcement)" x-transition>
-            <div class="card-header" style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-              <div>
-                <h3 style="margin: 0; font-size: 1.0rem; color: #333; line-height: 1.4;" x-text="`${announcement.cause || 'Power Outage'} at ${announcement.location || 'Area'}`"></h3>
-                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #777;" x-text="'Posted: ' + formatDate(announcement.created_at)"></p>
-              </div>
-              <template x-if="isUserArea(announcement)">
-                <span style="background: #e6f7ff; border: 1px solid #91d5ff; color: #096dd9; font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 12px; flex-shrink: 0;">Your Area</span>
-              </template>
-            </div>
-
-            <div class="card-details-grid" style="padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div>
-                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Feeder</span>
-                <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;" x-text="announcement.feeders?.name || 'N/A'"></span>
-              </div>
-              <div>
-                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Type</span>
-                <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;" x-text="formatStatus(announcement.type)"></span>
-              </div>
-              <div>
-                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Area</span>
-                <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;" x-text="announcement.barangay || 'N/A'"></span>
-              </div>
-              <div>
-                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Status</span>
-                <span :class="'status-pill status-' + (announcement.status || '').toLowerCase()" x-text="announcement.status || 'Unknown'" style="font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; display: inline-block;"></span>
-              </div>
-            </div>
-
-            <template x-if="announcement.announcement_images?.[0]">
-              <div class="card-image-container" style="width: 100%; max-height: 70vh; overflow: hidden; background: #f0f0f0;">
-                <img :src="announcement.announcement_images[0].image_url" style="width: 100%; height: auto; display: block; cursor: pointer;">
-              </div>
-            </template>
-
-            <div style="padding: 20px; border-top: 1px solid #f0f0f0;">
-              <p style="margin: 0; color: #555; font-size: 0.9rem; line-height: 1.5; word-break: break-word; white-space: pre-line; cursor: pointer;" x-text="getShortDescription(announcement.description)"></p>
-            </div>
-            
-            <div class="card-footer" style="padding: 10px 16px; border-top: 1px solid #f0f0f0; background: #fafafa;">
-                <button class="share-button" style="background: none; border: none; cursor: pointer; padding: 8px; 
-                    display: flex; align-items: center; justify-content: center;
-                    gap: 8px; font-size: 0.85rem; color: #555; font-weight: 600;
-                    border-radius: 6px; width: 100%;" @click.stop="shareItem(announcement)">
-                    <span class="material-symbols-outlined" style="font-size: 1.1rem;">share</span>Share
-                </button>
-            </div>
-          </div>
-        </template>
-      </div>
-    </main>
-
-    <!-- <main class="page" :class="{ 'active': currentPage === 'report' }">
-      <h2 class="section-title">Previous Reports</h2>
-      <div class="reports-grid">
-        <template x-for="report in userReports" :key="report.id">
-          <div class="report-card">
-            <div class="report-header">
-              <div class="feeder-info" x-text="report.barangays?.name || 'N/A'"></div>
-              <div :class="'status status-' + (report.status || 'pending').toLowerCase()" x-text="report.status"></div>
-            </div>
-            <div class="report-date" x-text="'Reported: ' + formatDate(report.outage_time)"></div>
-            <div class="report-description" x-text="report.description"></div>
-          </div>
-        </template>
-      </div>
-    </main> -->
-  </div>
-
-  <template x-if="selectedItem">
-    <div class="report-modal" @click.self="selectedItem = null" x-transition>
-      <div class="modal-content" style="background: #fff; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; position: relative;">
-        <button class="modal-close" @click="selectedItem = null" style="position: absolute; top: 15px; right: 15px; z-index: 10;">✕</button>
-        
-        <img x-show="selectedItem.announcement_images?.[0]" :src="selectedItem.announcement_images?.[0]?.image_url" style="width: 100%; max-height: 300px; object-fit: cover;">
-        
-        <div style="padding: 24px;">
-          <h2 x-text="selectedItem.cause" style="margin: 0 0 10px 0;"></h2>
-          <p x-text="selectedItem.description" style="color: #555; line-height: 1.6;"></p>
-          
-          <template x-if="selectedItem.latitude">
-            <button @click="goToMap(selectedItem)" class="btn-map" style="width: 100%; padding: 12px; background: #f1c40f; border: none; border-radius: 8px; font-weight: bold; margin-top: 20px; cursor: pointer;">
-              View Location on Map
-            </button>
+  <body x-data="mainShell" x-init="init()" x-cloak>
+    <nav class="desktop-nav">
+      <div class="user-profile">
+        <div class="user-avatar">
+          <template x-if="$store.auth.user?.avatar">
+            <img
+              :src="$store.auth.user.avatar"
+              style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover"
+            />
+          </template>
+          <template x-else>
+            <span x-text="$store.auth.user?.initials || '?'"></span>
           </template>
         </div>
+        <div class="user-info">
+          <h3
+            x-text="$store.auth.user ? ($store.auth.user.firstName + ' ' + $store.auth.user.lastName) : 'Guest User'"
+          ></h3>
+          <p x-text="$store.auth.isGuest ? 'Guest' : 'User'"></p>
+        </div>
       </div>
+
+      <ul class="desktop-nav-menu">
+        <template x-for="item in navItems" :key="item.id">
+          <li>
+            <a
+              class="desktop-nav-item"
+              :class="{ 'active': currentPage === item.id }"
+              @click="navigateTo(item.id)"
+            >
+              <span class="material-symbols-outlined desktop-nav-icon" x-text="item.icon"></span>
+              <span x-text="item.label"></span>
+            </a>
+          </li>
+        </template>
+      </ul>
+    </nav>
+
+    <div class="content-area">
+      <header>
+        <div class="logo">Beacon</div>
+        <div
+          class="profile-icon"
+          @click="toggleProfileMenu($event)"
+          style="cursor: pointer; overflow: hidden"
+        >
+          <template x-if="$store.auth.user?.avatar">
+            <img
+              :src="$store.auth.user.avatar"
+              alt="Profile"
+              style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover"
+            />
+          </template>
+          <template x-if="!$store.auth.user?.avatar">
+            <span x-text="$store.auth.user?.initials || '?'"></span>
+          </template>
+        </div>
+      </header>
+
+      <div id="page-view" x-html="viewHtml"></div>
     </div>
-  </template>
 
-  <nav class="bottom-nav">
-    <template x-for="item in navItems" :key="item.id">
-      <a class="nav-item" :class="{ 'active': currentPage === item.id }" @click="showPage(item.id)">
-        <span class="material-symbols-outlined nav-icon" x-text="item.icon"></span>
-        <span x-text="item.label"></span>
-      </a>
-    </template>
-  </nav>
+    <nav class="bottom-nav">
+      <template x-for="item in navItems" :key="item.id">
+        <a
+          class="nav-item"
+          :class="{ 'active': currentPage === item.id }"
+          @click="navigateTo(item.id)"
+        >
+          <span class="material-symbols-outlined nav-icon" x-text="item.icon"></span>
+          <span x-text="item.label"></span>
+        </a>
+      </template>
+    </nav>
 
-  <div id="ptr-indicator" x-show="refreshing" style="display: flex; position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1000;">
-    <span class="material-symbols-outlined" style="animation: spin 1s linear infinite;">refresh</span>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-  <script src="script/global.js"></script>
-  <script src="script/dashboard.js"></script>
-</body>
+    <div x-show="loadingPage" class="page-loader">
+      <div class="spinner"></div>
+    </div>
+  </body>
 </html>
-
-<style>
-.announcement-card {
-  background: #fff; border-radius: 8px; border: 1px solid #ddd;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12); overflow: hidden;
-  max-width: 800px; width: 100%; margin: 0 auto 16px auto; 
-}
-#reports-container {
-  display: flex; flex-direction: column; padding: 16px; box-sizing: border-box;
-}
-.status-pill.status-reported { background-color: #ffebe6; color: #d93026; }
-.status-pill.status-ongoing { background-color: #e6f4ea; color: #1e8e3e; }
-.status-pill.status-completed { background-color: #e6f4ea; color: #1e8e3e; }
-.status-pill.status-unknown, .status-pill.status-scheduled, .status-pill.status-unscheduled { 
-  background-color: #f1f3f4; color: #5f6368; 
-}
-.report-modal {
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:rgba(0,0,0,0.5);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  z-index:9999;
-  overflow:auto;
-  padding:20px;
-  box-sizing:border-box;
-}
-</style>

@@ -1,129 +1,496 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map - Beacon</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#FFE033">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body>
-    <nav class="desktop-nav">
-        <div class="user-profile">
-            <div class="user-avatar">JS</div>
-            <div class="user-info">
-                <h3>John Smith</h3>
-                <p>User</p>
-            </div>
+<main x-data="mapApp" x-init="init()" class="page active">
+  <div class="map-content-area" x-cloak>
+    <div class="map-controls">
+      <div class="map-search-container">
+        <input
+          type="text"
+          x-model="searchQuery"
+          @input="filterBarangays()"
+          placeholder="Search Location..."
+          class="map-search-input"
+        />
+
+        <div class="search-dropdown" x-show="showDropdown" @click.away="showDropdown = false">
+          <template x-for="brgy in filteredBrgyList" :key="brgy">
+            <div class="dropdown-item" x-text="brgy" @click="selectBarangay(brgy)"></div>
+          </template>
         </div>
-        <ul class="desktop-nav-menu">
-            <li class="desktop-nav-item" data-page="dashboard">
-                <a href="index.html" class="desktop-nav-link">
-                    <span class="material-symbols-outlined desktop-nav-icon">dashboard</span>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item" data-page="calendar">
-                <a href="calendar.html" class="desktop-nav-link">
-                    <span class="material-symbols-outlined desktop-nav-icon">calendar_month</span>
-                    <span>Calendar</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item" data-page="report">
-                <a href="report.html" class="desktop-nav-link">
-                    <span class="material-symbols-outlined desktop-nav-icon">report</span>
-                    <span>Report</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item active" data-page="map">
-                <span class="material-symbols-outlined desktop-nav-icon">map</span>
-                <span>Map</span>
-            </li>
-            <li class="desktop-nav-item" data-page="notification">
-                <a href="notification.html" class="desktop-nav-link">
-                    <span class="material-symbols-outlined desktop-nav-icon">notifications</span>
-                    <span>Notifications</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
+      </div>
 
-    <div class="content-area">
-        <header>
-            <div class="logo">Beacon</div>
-            <div class="profile-icon">JS</div>
-        </header>
-
-        <main class="page active" id="map-page">
-            <div class="map-content-area">
-                <div class="map-controls">
-                <input type="text" id="locationSearch" placeholder="Search Location..." class="map-search-input">
-
-                    <select id="area-selector" class="map-area-selector">
-                        <option value="my-area">All feeders</option>
-                        <option value="feeder-1">Feeder 1</option>
-                        <option value="feeder-2">Feeder 2</option>
-                        <option value="feeder-3">Feeder 3</option>
-                        <option value="feeder-4">Feeder 4</option>
-                        <option value="feeder-5">Feeder 5</option>
-                        <option value="feeder-6">Feeder 6</option>
-                        <option value="feeder-7">Feeder 7</option>
-                        <option value="feeder-8">Feeder 8</option>
-                        <option value="feeder-9">Feeder 9</option>
-                        <option value="feeder-10">Feeder 10</option>
-                        <option value="feeder-11">Feeder 11</option>
-                        <option value="feeder-12">Feeder 12</option>
-                        <option value="feeder-13">Feeder 13</option>
-                    </select>
-                    
-                </div>
-
-                <div id="map" class="map-container"></div>
-
-                <p class="map-attribution">
-                    Map data &copy; 
-                    <a href="https://www.openstreetmap.org/copyright" target="_blank">
-                        OpenStreetMap contributors
-                    </a>
-                </p>
-
-                <div id="map-reports-container" class="map-reports"></div>
-            </div>
-        </main>
+      <select x-model="selectedFeeder" @change="loadAndPlot()" class="map-area-selector">
+        <option value="all">All Feeders</option>
+        <template x-for="i in 13" :key="i">
+          <option :value="i" x-text="'Feeder ' + i"></option>
+        </template>
+      </select>
     </div>
 
-    <nav class="bottom-nav">
-        <a href="index.html" class="nav-item" data-page="dashboard">
-            <span class="material-symbols-outlined nav-icon">dashboard</span>
-            <span>Dashboard</span>
-        </a>
-        <a href="calendar.html" class="nav-item" data-page="calendar">
-            <span class="material-symbols-outlined nav-icon">calendar_month</span>
-            <span>Calendar</span>
-        </a>
-        <a href="report.html" class="nav-item" data-page="report">
-            <span class="material-symbols-outlined nav-icon">report</span>
-            <span>Report</span>
-        </a>
-        <a class="nav-item active" data-page="map">
-            <span class="material-symbols-outlined nav-icon">map</span>
-            <span>Map</span>
-        </a>
-        <a href="notification.html" class="nav-item" data-page="notification">
-            <span class="material-symbols-outlined nav-icon">notifications</span>
-            <span>Notifications</span>
-        </a>
-    </nav>
+    <div
+      id="map"
+      class="map-container"
+      style="height: 500px; width: 100%; border-radius: 12px; z-index: 1"
+    ></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-    <script src="script/global.js"></script>
-    <script src="dashboard.js"></script>
-    <script src="script/map.js"></script>
-</body>
-</html>
+    <p class="map-attribution">
+      Map data &copy;
+      <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>
+    </p>
+  </div>
+
+  <template x-if="selectedOutage">
+    <div class="report-modal" @click.self="selectedOutage = null" x-transition>
+      <div
+        class="modal-content"
+        style="background: #fff; max-width: 500px; border-radius: 16px; overflow: hidden"
+      >
+        <div
+          class="modal-header"
+          style="
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+          "
+        >
+          <div>
+            <h2 x-text="selectedOutage.cause || 'Power Outage'" style="margin: 0"></h2>
+            <span
+              :class="'modal-status status-' + selectedOutage.status.toLowerCase()"
+              x-text="selectedOutage.status"
+            ></span>
+          </div>
+          <button @click="selectedOutage = null" class="modal-close-btn">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding: 20px">
+          <div class="modal-info-grid">
+            <p><strong>Feeder:</strong> <span x-text="selectedOutage.feeder_id || 'N/A'"></span></p>
+            <p>
+              <strong>Location:</strong>
+              <span x-text="selectedOutage.location || selectedOutage.barangay"></span>
+            </p>
+            <p x-text="selectedOutage.description"></p>
+          </div>
+
+          <template x-if="selectedOutage.picture">
+            <div class="modal-image-container">
+              <img
+                :src="selectedOutage.picture"
+                class="modal-image"
+                style="width: 100%; border-radius: 8px"
+              />
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div x-show="!mapReady" style="text-align: center; padding: 50px">
+    <div class="spinner"></div>
+    <p>Initializing Map...</p>
+  </div>
+
+  <style>
+    #map {
+      z-index: 0 !important;
+      position: relative;
+    }
+
+    /* FORCE OVERLAYS TO BE ON TOP OF MAP CONTROLS */
+    .modal-overlay,
+    .modal {
+      z-index: 20000 !important;
+    }
+
+    /* Map Controls - High but lower than modal */
+    .map-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: nowrap;
+      position: relative;
+      z-index: 1000; /* Lowered from 10002 to allow modal (20000) to sit on top */
+    }
+
+    .map-search-container {
+      flex: 1;
+      position: relative;
+      min-width: 200px;
+    }
+
+    .map-search-input {
+      width: 100%;
+      padding: 10px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+
+    .map-search-input:focus {
+      border-color: #4285f4;
+    }
+
+    /* Search Dropdown needs to be slightly above controls */
+    .search-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1001; /* Just above the map-controls (1000) */
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .dropdown-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s;
+    }
+
+    .dropdown-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .map-area-selector {
+      width: 48px;
+      height: 40px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 20px;
+      cursor: pointer;
+      background: white
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23333"><path d="M7 10l5 5 5-5z"/></svg>')
+        no-repeat;
+      background-position: center;
+      background-size: 24px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      outline: none;
+      transition:
+        border-color 0.2s,
+        background-color 0.2s;
+      text-indent: -9999px;
+      flex-shrink: 0;
+    }
+
+    .map-area-selector:hover {
+      background-color: #f8f9fa;
+      border-color: #4285f4;
+    }
+
+    .map-area-selector:focus {
+      border-color: #4285f4;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .map-controls {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+
+      .map-search-container {
+        min-width: 150px;
+      }
+
+      .map-area-selector {
+        width: 44px;
+        height: 40px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .map-controls {
+        gap: 6px;
+      }
+
+      .map-search-container {
+        min-width: 120px;
+      }
+
+      .map-search-input {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .map-area-selector {
+        width: 40px;
+        height: 38px;
+      }
+    }
+
+    /* Custom Marker Styling */
+    .custom-marker-icon {
+      background: transparent !important;
+      border: none !important;
+    }
+
+    .marker-pin {
+      position: relative;
+      width: 30px;
+      height: 30px;
+      border-radius: 50% 50% 50% 0;
+      background: #dc3545;
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      border: 2px solid white;
+      z-index: 1000;
+    }
+
+    .marker-pin::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: white;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .marker-pulse {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50% 50% 50% 0;
+      background: inherit;
+      opacity: 0;
+      animation: pulse 2s ease-out infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1) rotate(-45deg);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(1.8) rotate(-45deg);
+        opacity: 0;
+      }
+    }
+
+    .marker-shadow {
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.2);
+      filter: blur(2px);
+    }
+
+    /* Notifications */
+    .no-outage-notification,
+    .search-notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 10001;
+      transition: transform 0.3s ease;
+    }
+
+    .no-outage-notification.show,
+    .search-notification.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .no-outage-notification .material-symbols-outlined {
+      color: #4caf50;
+      font-size: 24px;
+    }
+
+    .search-notification .material-symbols-outlined {
+      color: #ff9800;
+      font-size: 24px;
+    }
+
+    /* MAP ANNOUNCEMENT MODAL - Set to 2000 (Above map/controls, below global modal) */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      border-radius: 12px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 24px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .modal-header h2 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .modal-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .modal-status.status-reported {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    .modal-status.status-ongoing {
+      background-color: #fff8e1;
+      color: #f57c00;
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      transition:
+        background-color 0.2s,
+        color 0.2s;
+      padding: 0;
+    }
+
+    .modal-close-btn:hover {
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    .modal-close-btn .material-symbols-outlined {
+      font-size: 24px;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-info-grid {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .modal-info-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .modal-info-item .material-symbols-outlined {
+      font-size: 24px;
+      color: #666;
+    }
+
+    .modal-info-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .modal-info-value {
+      font-size: 16px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .modal-image-container {
+      margin: 24px 0;
+      text-align: center;
+    }
+
+    .modal-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-description {
+      margin-top: 24px;
+    }
+
+    .modal-description h3 {
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
+      margin: 0 0 12px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-description p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #666;
+      margin: 0;
+    }
+
+    @media (max-width: 768px) {
+      .modal-content {
+        max-width: 100%;
+        margin: 20px;
+      }
+    }
+  </style>
+</main>
