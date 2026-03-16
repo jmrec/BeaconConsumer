@@ -469,14 +469,11 @@ async function initSupabase() {
         window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('Supabase initialized');
 
-        // Check for existing Supabase session
         try {
             const { data } = await window.supabase.auth.getSession();
             const session = data?.session;
             
             if (session?.user) {
-                // User is logged in via Supabase - sync with our state
-                // Fetch profile to merge with auth data
                 const { data: profileData, error } = await window.supabase
                     .from('profiles')
                     .select('*')
@@ -489,7 +486,6 @@ async function initSupabase() {
                 setAuthState(userData, false);
                 console.log('User authenticated via Supabase and profile synced');
             } else {
-                // No Supabase session - respect our existing localStorage state
                 console.log('No Supabase session found');
             }
         } catch (e) {

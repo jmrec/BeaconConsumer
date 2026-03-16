@@ -139,7 +139,6 @@ async function loadAndPlotReports(feederFilter = null) {
       .not('latitude', 'is', null)
       .not('longitude', 'is', null)
       .in('status', ['Reported', 'Ongoing'])
-      // Sort by created_at desc so "most recent" is processed first
       .order('created_at', { ascending: false });
 
     if (feederFilter && feederFilter !== 'my-area') {
@@ -152,11 +151,9 @@ async function loadAndPlotReports(feederFilter = null) {
 
     allReports = data;
 
-    // Clear existing markers
     currentMarkers.forEach(marker => simpleMap.removeLayer(marker));
     currentMarkers = [];
 
-    // Group for spiral (overlapping coords)
     const coordinateGroups = {};
     data.forEach(report => {
       const lat = Number(report.latitude);
@@ -168,20 +165,16 @@ async function loadAndPlotReports(feederFilter = null) {
       coordinateGroups[key].push(report);
     });
 
-    // Plot Markers
     Object.entries(coordinateGroups).forEach(([key, reports]) => {
       reports.forEach((report, index) => {
         const lat = Number(report.latitude);
         const lng = Number(report.longitude);
         
-        // Spiral Logic
         const offsetDistance = 0.0003 * index; 
         const angle = (index * 137.5) * (Math.PI / 180); 
         const offsetLat = lat + (offsetDistance * Math.cos(angle));
         const offsetLng = lng + (offsetDistance * Math.sin(angle));
 
-        // Default Colors (Red/Yellow)
-        // Note: Blue highlight is applied separately
         const color = report.status === 'Ongoing' ? '#FFC107' : '#DC3545';
         const markerIcon = createCustomIcon(color);
 
@@ -198,12 +191,10 @@ async function loadAndPlotReports(feederFilter = null) {
       });
     });
 
-    // === CRITICAL: Re-apply Blue Highlight after every plot ===
     if (userBarangay) {
         highlightUserRelevantMarker();
     }
 
-    // Fit bounds if not redirecting
     if (currentMarkers.length > 0 && !window.location.search.includes('id=')) {
       const group = L.featureGroup(currentMarkers);
       simpleMap.fitBounds(group.getBounds().pad(0.1));

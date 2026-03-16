@@ -10,15 +10,15 @@ the public announcements dashboard.
 // Wait for Supabase Initialization
 // ==============================
 async function waitForSupabase() {
-  let retries = 0;
-  while ((!window.supabase || typeof window.supabase.from !== "function") && retries < 30) {
-    await new Promise((r) => setTimeout(r, 200));
-    retries++;
-  }
-  if (!window.supabase || typeof window.supabase.from !== "function") {
+    let retries = 0;
+    while ((!window.supabase || typeof window.supabase.from !== "function") && retries < 30) {
+        await new Promise((r) => setTimeout(r, 200));
+        retries++;
+    }
+    if (!window.supabase || typeof window.supabase.from !== "function") {
     console.error("❌ Supabase failed to initialize after waiting.");
-    throw new Error("Supabase not ready");
-  }
+        throw new Error("Supabase not ready");
+    }
   console.log("✅ Supabase is ready");
 }
 
@@ -26,28 +26,28 @@ async function waitForSupabase() {
 // Populate Barangay Dropdown
 // ==============================
 async function loadBarangays() {
-  const barangaySelect = document.getElementById("barangay-select");
-  if (!barangaySelect) return;
+    const barangaySelect = document.getElementById("barangay-select");
+    if (!barangaySelect) return;
 
-  barangaySelect.innerHTML = `<option value="">Loading barangays...</option>`;
+    barangaySelect.innerHTML = `<option value="">Loading barangays...</option>`;
 
-  try {
-    await waitForSupabase();
-    const { data, error } = await supabase.from("barangays").select("*").order("name", { ascending: true });
-    if (error) throw error;
+    try {
+        await waitForSupabase();
+        const { data, error } = await supabase.from("barangays").select("*").order("name", { ascending: true });
+        if (error) throw error;
 
-    barangaySelect.innerHTML = `<option value="">Select Barangay</option>`;
-    data.forEach((barangay) => {
-      const option = document.createElement("option");
-      option.value = barangay.id; 
-      option.textContent = barangay.name; 
-      barangaySelect.appendChild(option);
-    });
+        barangaySelect.innerHTML = `<option value="">Select Barangay</option>`;
+        data.forEach((barangay) => {
+            const option = document.createElement("option");
+            option.value = barangay.id;
+            option.textContent = barangay.name;
+            barangaySelect.appendChild(option);
+        });
     console.log("✅ Barangays loaded:", data.length);
-  } catch (err) {
+    } catch (err) {
     console.error("Error loading barangays:", err);
-    barangaySelect.innerHTML = `<option value="">Failed to load</option>`;
-  }
+        barangaySelect.innerHTML = `<option value="">Failed to load</option>`;
+    }
 }
 
 // ==============================
@@ -398,7 +398,8 @@ function subscribeToDashboardUpdates() {
       },
       (payload) => {
         console.log('✅ Realtime dashboard update received!', payload);
-        loadDashboardAnnouncements();
+        // loadDashboardAnnouncements();
+        handleRealtimeUpdate(payload);
       }
     )
     .subscribe((status, err) => {
@@ -411,6 +412,163 @@ function subscribeToDashboardUpdates() {
         dashboardSubscriptionChannel = null;
       }
     });
+}
+
+async function handleRealtimeUpdate(payload) {
+  const { eventType, new: newItem, old: oldItem } = payload;
+
+  switch (eventType) { 
+    case 'INSERT':
+        const { data: fullItem } = await supabase
+            .from("announcements")
+            .select("*, feeders ( name ), announcement_images!announcement_images_announcement_id_fkey ( image_url )")
+            .eq('id', newItem.id)
+            .single();
+        if (fullItem) allAnnouncementsCache.unshift(fullItem);
+        break;
+    case 'UPDATE':
+        const index = allAnnouncementsCache.findIndex(item => item.id === newItem.id);
+        if (index !== -1) {
+            allAnnouncementsCache[index] = { ...allAnnouncementsCache[index], ...newItem };
+        }
+
+        const existingElement = document.getElementById(`announcement-${newItem.id}`);
+        if (existingElement) {
+            existingElement.innerHTML = generateAnnouncementCardHTML(allAnnouncementsCache[index], userBarangayCache);
+            
+            sortAnnouncements(userBarangayCache);
+            renderDashboardAnnouncements(allAnnouncementsCache, userBarangayCache);
+            return;
+        }
+        break;
+    case 'DELETE':
+        allAnnouncementsCache = allAnnouncementsCache.filter(item => item.id === oldItem.id);
+        break;
+  }
+
+  sortAnnouncements(userBarangayCache);
+  renderDashboardAnnouncements(allAnnouncementsCache, userBarangayCache);
+};
+
+function generateAnnouncementCardHTML(announcement, userBrgyName) {
+    const userBrgy = (userBrgyName || '').toLowerCase();
+    const imageUrl = (announcement.announcement_images && announcement.announcement_images.length > 0) 
+                     ? announcement.announcement_images[0].image_url 
+                     : null;
+
+    const descriptionShort = (announcement.description || "No description.").substring(0, 150) + 
+                           (announcement.description && announcement.description.length > 150 ? '...' : '');
+
+    const safeDescription = (announcement.description || "View announcement")
+                             .substring(0, 100)
+                             .replace(/'/g, "\\'")
+                             .replace(/"/g, '&quot;')
+                             .replace(/\n/g, " ");
+
+    // Badge Logic
+    const mainMatch = (announcement.barangay || '').toLowerCase().includes(userBrgy);
+    const areaMatch = Array.isArray(announcement.areas_affected) && 
+                      announcement.areas_affected.some(area => area && area.toLowerCase().includes(userBrgy));
+    const matchesUserArea = userBrgy && (mainMatch || areaMatch);
+
+    // Status Logic
+    let statusClass = 'status-unknown';
+    const lowerStatus = (announcement.status || '').toLowerCase();
+    if (lowerStatus === 'reported') statusClass = 'status-reported';
+    else if (lowerStatus === 'ongoing') statusClass = 'status-ongoing';
+    else if (lowerStatus === 'completed') statusClass = 'status-completed';
+    else if (lowerStatus === 'scheduled') statusClass = 'status-scheduled';
+    else if (lowerStatus === 'unscheduled') statusClass = 'status-unscheduled';
+
+    return `
+        <div class="card-header" style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.0rem; color: #333; line-height: 1.4;">
+                    ${announcement.cause || 'Power Outage'} at ${announcement.location || 'Area'}
+                </h3>
+                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #777;">
+                    Posted: ${new Date(announcement.created_at).toLocaleString()}
+                </p>
+            </div>
+            ${matchesUserArea ? `
+            <span style="background: #e6f7ff; border: 1px solid #91d5ff; color: #096dd9; font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 12px; flex-shrink: 0;">
+                Your Area
+            </span>
+            ` : ''}
+        </div>
+
+        <div class="card-details-grid" style="padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Feeder</span>
+                <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;">${announcement.feeders?.name || "N/A"}</span>
+            </div>
+            <div>
+                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Type</span>
+                <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;">${formatStatus(announcement.type)}</span>
+            </div>
+            <div>
+                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Area</span>
+                <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;">${announcement.barangay || "N/A"}</span>
+            </div>
+            <div>
+                <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Status</span>
+                <span class="status-pill ${statusClass}" style="font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; display: inline-block;">
+                    ${formatStatus(announcement.status)}
+                </span>
+            </div>
+        </div>
+
+        ${imageUrl ? `
+        <div class="card-image-container" style="width: 100%; max-height: 70vh; overflow: hidden; background: #f0f0f0;" onclick="showAnnouncementDetails(${announcement.id})">
+            <img src="${imageUrl}" alt="Announcement Image" style="width: 100%; height: auto; display: block; cursor: pointer;" 
+                 onerror="this.style.display='none'; this.parentElement.style.display='none';">
+        </div>
+        ` : ''}
+        
+        <div class="card-content" style="padding: 16px; border-top: 1px solid #f0f0f0;" onclick="showAnnouncementDetails(${announcement.id})">
+            <p style="margin: 0; color: #555; font-size: 0.9rem; line-height: 1.5; word-break: break-word; white-space: pre-line; cursor: pointer;">
+                ${descriptionShort}
+            </p> 
+        </div>
+        
+        <div class="card-footer" style="padding: 10px 16px; border-top: 1px solid #f0f0f0; background: #fafafa;">
+            <button class="share-button" style="
+                background: none; border: none; cursor: pointer; padding: 8px; 
+                display: flex; align-items: center; justify-content: center;
+                gap: 8px; font-size: 0.85rem; color: #555; font-weight: 600;
+                border-radius: 6px; width: 100%;
+            " onclick="handleShareClick(event, ${announcement.id}, '${safeDescription}')">
+                <span class="material-symbols-outlined" style="font-size: 1.1rem;">share</span>
+                Share
+            </button>
+        </div>
+    `;
+}
+
+function sortAnnouncements(targetBarangay) {
+  if (!targetBarangay) return;
+  const target = targetBarangay.toLowerCase();
+
+  allAnnouncementsCache.sort((a, b) => {
+    const getScore = (item) => {
+      const mainMatch = (item.barangay || '').toLowerCase() === target;
+      const areaMatch = Array.isArray(item.areas_affected) && 
+                        item.areas_affected.some(area => area && area.toLowerCase().includes(target));
+      
+      const isRelevant = mainMatch || areaMatch;
+      if (!isRelevant) return 0;
+
+      const s = (item.status || '').toLowerCase();
+      if (s === 'reported' || s === 'ongoing') return 100;
+      return 50;
+    };
+
+    const scoreA = getScore(a);
+    const scoreB = getScore(b);
+
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 }
 
 // ==============================
@@ -626,43 +784,10 @@ async function loadDashboardAnnouncements() {
 
         const { data, error } = await query;
         if (error) throw error;
-        
-        let results = data || [];
 
-        // 3. VIP SCORING LOGIC
-        if (userBrgyName) {
-            const target = userBrgyName.toLowerCase();
-            
-            results.sort((a, b) => {
-                const getScore = (item) => {
-                    // Relevance
-                    const mainMatch = (item.barangay || '').toLowerCase() === target;
-                    const areaMatch = Array.isArray(item.areas_affected) && 
-                                      item.areas_affected.some(area => area && area.toLowerCase().includes(target));
-                    
-                    const isRelevant = mainMatch || areaMatch;
-                    if (!isRelevant) return 0; // Score 0
+        allAnnouncementsCache = data || []; 
 
-                    // Status (Only Active matters for top slot)
-                    const s = (item.status || '').toLowerCase();
-                    if (s === 'reported' || s === 'ongoing') {
-                        return 100; // VIP Score
-                    }
-                    return 50; // Relevant but not active
-                };
-
-                const scoreA = getScore(a);
-                const scoreB = getScore(b);
-
-                if (scoreA > scoreB) return -1;
-                if (scoreA < scoreB) return 1;
-
-                // Fallback to Date
-                return new Date(b.created_at) - new Date(a.created_at);
-            });
-        }
-
-        allAnnouncementsCache = results; 
+        sortAnnouncements(userBarangayCache);
 
         if (allAnnouncementsCache.length === 0) {
             container.innerHTML = `
@@ -675,8 +800,6 @@ async function loadDashboardAnnouncements() {
         }
         
         renderDashboardAnnouncements(allAnnouncementsCache, userBarangayCache); 
-        
-        // --- ADDED: Check URL for deep linking focus ---
         handleUrlFocus();
 
     } catch (err) {
@@ -759,67 +882,7 @@ function renderDashboardAnnouncements(announcementsToRender, userBrgyName) {
 
         return `
         <div class="announcement-card" id="announcement-${announcement.id}">
-            <div class="card-header" style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                <div>
-                    <h3 style="margin: 0; font-size: 1.0rem; color: #333; line-height: 1.4;">
-                        ${announcement.cause || 'Power Outage'} at ${announcement.location || 'Area'}
-                    </h3>
-                    <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #777;">
-                        Posted: ${new Date(announcement.created_at).toLocaleString()}
-                    </p>
-                </div>
-                ${matchesUserArea ? `
-                <span style="background: #e6f7ff; border: 1px solid #91d5ff; color: #096dd9; font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 12px; flex-shrink: 0;">
-                    Your Area
-                </span>
-                ` : ''}
-            </div>
-
-            <div class="card-details-grid" style="padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div>
-                    <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Feeder</span>
-                    <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;">${announcement.feeders?.name || "N/A"}</span>
-                </div>
-                <div>
-                    <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Type</span>
-                    <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;">${formatStatus(announcement.type)}</span>
-                </div>
-                <div>
-                    <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Area</span>
-                    <span style="font-size: 0.85rem; color: #333; display: block; font-weight: 500;">${announcement.barangay || "N/A"}</span>
-                </div>
-                <div>
-                    <span style="font-size: 0.7rem; color: #888; display: block; text-transform: uppercase; margin-bottom: 2px;">Status</span>
-                    <span class="status-pill ${statusClass}" style="font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; display: inline-block;">
-                        ${formatStatus(announcement.status)}
-                    </span>
-                </div>
-            </div>
-
-            ${imageUrl ? `
-            <div classD="card-image-container" style="width: 100%; max-height: 70vh; overflow: hidden; background: #f0f0f0;" onclick="showAnnouncementDetails(${announcement.id})">
-                <img src="${imageUrl}" alt="Announcement Image" style="width: 100%; height: auto; display: block; cursor: pointer;" 
-                     onerror="this.style.display='none'; this.parentElement.style.display='none';">
-            </div>
-            ` : ''}
-            
-            <div class.="card-content" style="padding: 16px; border-top: 1px solid #f0f0f0;" onclick="showAnnouncementDetails(${announcement.id})">
-                <p style="margin: 0; color: #555; font-size: 0.9rem; line-height: 1.5; word-break: break-word; white-space: pre-line; cursor: pointer;">
-                    ${descriptionShort}
-                </I> 
-            </div>
-            
-            <div class="card-footer" style="padding: 10px 16px; border-top: 1px solid #f0f0f0; background: #fafafa;">
-                <button class="share-button" style="
-                    background: none; border: none; cursor: pointer; padding: 8px; 
-                    display: flex; align-items: center; justify-content: center;
-                    gap: 8px; font-size: 0.85rem; color: #555; font-weight: 600;
-                    border-radius: 6px; width: 100%;
-                " onclick="handleShareClick(event, ${announcement.id}, '${safeDescription}')">
-                    <span class="material-symbols-outlined" style="font-size: 1.1rem;">share</span>
-                    Share
-                </button>
-            </div>
+            ${generateAnnouncementCardHTML(announcement, userBrgyName)}
         </div>
         `;
     }).join('');
@@ -937,3 +1000,92 @@ function handleUrlFocus() {
         }, 300); // 300ms delay to ensure HTML is painted
     }
 }
+
+document.addEventListener('alpine:init', () => {
+  Alpine.data('beaconApp', () => ({
+    currentPage: 'dashboard',
+    announcements: [],
+    userReports: [],
+    searchTerm: '',
+    dateFilter: '',
+    statusFilter: '',
+    userBrgy: null,
+    selectedItem: null,
+    userName: 'John Smith',
+    userInitials: 'JS',
+    userRole: 'User',
+    navItems: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+      { id: 'report', label: 'Report', icon: 'report' },
+      { id: 'map', label: 'Map', icon: 'map' }
+    ],
+
+    async init() {
+      await waitForSupabase();
+      this.setupAuth();
+      this.subscribeToRealtime();
+    },
+
+    async setupAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Fetch profile/barangay
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        this.userBrgy = profile?.barangay;
+        this.loadUserReports(user.id);
+      }
+      this.loadDashboard();
+    },
+
+    async loadDashboard() {
+      const { data } = await supabase
+        .from("announcements")
+        .select("*, feeders(name), announcement_images(image_url)")
+        .order("created_at", { ascending: false });
+      this.announcements = data || [];
+    },
+
+    // REAL-TIME Logic: Seamless and non-flickering
+    subscribeToRealtime() {
+      supabase.channel('db-changes')
+        .on('postgres_changes', { event: '*', table: 'announcements' }, async (payload) => {
+          if (payload.eventType === 'INSERT') {
+            // Fetch relations for new item
+            const { data } = await supabase.from("announcements").select("*, feeders(name), announcement_images(image_url)").eq('id', payload.new.id).single();
+            this.announcements.unshift(data);
+          } else if (payload.eventType === 'UPDATE') {
+            const idx = this.announcements.findIndex(a => a.id === payload.new.id);
+            if (idx !== -1) Object.assign(this.announcements[idx], payload.new);
+          } else if (payload.eventType === 'DELETE') {
+            this.announcements = this.announcements.filter(a => a.id !== payload.old.id);
+          }
+        }).subscribe();
+    },
+
+    // COMPUTED PROPERTY: Automatically sorts and filters
+    get processedAnnouncements() {
+      let list = this.announcements.filter(item => {
+        const matchesSearch = !this.searchTerm || JSON.stringify(item).toLowerCase().includes(this.searchTerm.toLowerCase());
+        const matchesStatus = !this.statusFilter || item.status === this.statusFilter;
+        // Add date filter logic here
+        return matchesSearch && matchesStatus;
+      });
+
+      // VIP Scoring/Sorting
+      return list.sort((a, b) => {
+        const getScore = (item) => {
+          const isRelevant = item.barangay === this.userBrgy;
+          if (!isRelevant) return 0;
+          return (item.status === 'Reported' || item.status === 'Ongoing') ? 100 : 50;
+        };
+        return getScore(b) - getScore(a) || new Date(b.created_at) - new Date(a.created_at);
+      });
+    },
+
+    showPage(page) { this.currentPage = page; },
+    openDetails(item) { this.selectedItem = item; },
+    isUserArea(item) { return item.barangay === this.userBrgy; },
+    formatDate(d) { return new Date(d).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); },
+    goToMap(item) { window.location.href = `map.html?id=${item.id}&lat=${item.latitude}&lng=${item.longitude}`; }
+  }));
+});

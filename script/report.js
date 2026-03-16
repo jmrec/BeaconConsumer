@@ -418,6 +418,7 @@ function initializeReportForm() {
       urgentToggle.addEventListener("change", () => {
           if (urgentToggle.checked) {
               imageLabel.classList.add("required");
+              // alert("Note: Images are required for urgent reports.");
           } else {
               imageLabel.classList.remove("required");
           }
