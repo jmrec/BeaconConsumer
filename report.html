@@ -7,59 +7,40 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FFE033">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
 </head>
-<body>
+<body x-data="reportApp" x-init="init()" x-cloak>
     <nav class="desktop-nav">
         <div class="user-profile">
-            <div class="user-avatar">JS</div>
+            <div class="user-avatar" x-text="userInitials"></div>
             <div class="user-info">
-                <h3>John Smith</h3>
-                <p>User</p>
+                <h3 x-text="userName">Guest</h3>
+                <p x-text="userRole">User</p>
             </div>
         </div>
-         <ul class="desktop-nav-menu">
-            <li class="desktop-nav-item" data-page="dashboard">
-                <a href="index.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">dashboard</span>
-                <span>Dashboard</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item" data-page="calendar">
-                <a href="calendar.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">calendar_month</span>
-                <span>Calendar</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item active" data-page="report">
-                <span class="material-symbols-outlined desktop-nav-icon">report</span>
-                <span>Report</span>
-            </li>
-            <li class="desktop-nav-item" data-page="map">
-                <a href="map.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">map</span>
-                <span>Map</span>
-                </a>
-            </li>
-            <li class="desktop-nav-item" data-page="notification">
-                <a href="notification.html" class="desktop-nav-link">
-                <span class="material-symbols-outlined desktop-nav-icon">notifications</span>
-                <span>Notifications</span>
-                </a>
-            </li>
+        <ul class="desktop-nav-menu">
+            <template x-for="item in navItems" :key="item.id">
+                <li>
+                    <a class="desktop-nav-item" :class="{ 'active': window.location.pathname.includes(item.url) || (item.url === 'index.html' && window.location.pathname === '/') }" :href="item.url" @click="showPage(item.id)">
+                        <span class="material-symbols-outlined desktop-nav-icon" x-text="item.icon"></span>
+                        <span x-text="item.label"></span>
+                    </a>
+                </li>
+            </template>
         </ul>
     </nav>
 
     <div class="content-area">
         <header>
             <div class="logo">Beacon</div>
-            <div class="profile-icon">JS</div>
+            <div class="profile-icon" x-text="userInitials"></div>
         </header>
 
-        <main class="page active" id="report">
-            <div class="report-action-card" onclick="showPage('report-form')">
+        <main class="page" x-show="!isFormOpen" x-transition>
+            <div class="report-action-card" @click="openForm()">
                 <div class="report-action-content">
                     <span class="material-symbols-outlined report-action-icon">add_circle</span>
                     <h3>+ Report Outage</h3>
@@ -67,125 +48,87 @@
             </div>
 
             <h2 class="section-title">Previous Reports</h2>
-            <div id="user-reports-container">
-                </div>
+            <div class="reports-grid">
+                <template x-for="report in reports" :key="report.id">
+                    <div class="report-card" @click="showDetails(report)">
+                        <div class="status-highlight" :class="'status-' + report.status"></div>
+                        <div class="report-header">
+                            <div class="feeder-info" x-text="report.barangays?.name || 'N/A'"></div>
+                            <div class="status-container">
+                                <div class="status" :class="'status-' + report.status" x-text="report.status"></div>
+                                <button class="three-dots-btn" @click.stop="deleteReport(report.id)">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="report-date" x-text="'Reported: ' + formatDateTime(report.outage_time)"></div>
+                        <div class="report-description" x-text="report.description"></div>
+                    </div>
+                </template>
+            </div>
         </main>
 
-        <main class="page" id="report-form">
+        <main class="page" x-show="isFormOpen" x-transition>
             <div class="report-form">
-                <h2 class="section-title">Report Outage</h2>
+                <div style="display:flex; justify-content: space-between;">
+                    <h2 class="section-title">Report Outage</h2>
+                    <button @click="closeForm()" class="modal-close-btn">✕</button>
+                </div>
                 
                 <div class="form-group">
                     <label class="form-label required">Barangay</label>
-                    <select class="form-select" id="barangay-select" required>
+                    <select class="form-select" x-model="form.barangay_id">
                         <option value="">Select Barangay</option>
-                        <option value="camp7">Camp 7</option>
-                        <option value="bakakeng">Bakakeng</option>
-                        <option value="crystal">Crystal Cave</option>
-                        <option value="hillside">Hillside</option>
-                        <option value="senta">Senta Escolatisca</option>
+                        <template x-for="b in barangayList" :key="b.id">
+                            <option :value="b.id" x-text="b.name"></option>
+                        </template>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label required">Outage Time</label>
-                    <input type="datetime-local" class="form-input" id="outage-time" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label required">Cause of Outage</label>
-                    <div class="toggle-buttons" id="cause-buttons">
-                        <button type="button" class="toggle-button" data-cause="unsure">Unsure</button>
-                        <button type="button" class="toggle-button" data-cause="flickering">Flickering</button>
-                        <button type="button" class="toggle-button" data-cause="damaged-line">Damaged Line</button>
-                        <button type="button" class="toggle-button" data-cause="no-power">No Power</button>
-                        <button type="button" class="toggle-button" data-cause="fallen-tree">Fallen Tree</button>
-                        <button type="button" class="toggle-button" data-cause="others">Others</button>
-                    </div>
-                    <input type="hidden" id="selected-cause" required>
-                </div>
-
-                <div class="form-group">
-                    <div class="terms-checkbox">
-                        <input type="checkbox" id="is-urgent">
-                        <label for="is-urgent">Is this urgent?</label>
+                    <label class="form-label required">Cause</label>
+                    <div class="toggle-buttons">
+                        <template x-for="c in causes">
+                            <button class="toggle-button" :class="form.cause === c ? 'active' : ''" @click="form.cause = c" x-text="c"></button>
+                        </template>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label required">Description</label>
-                    <textarea class="form-textarea" id="outage-description" placeholder="Describe the outage..." required></textarea>
+                    <textarea class="form-textarea" x-model="form.description" placeholder="Minimum 10 characters..."></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Upload Image</label>
-                    <div class="file-upload" id="image-upload">
+                    <label class="form-label">Upload Images (Max 5)</label>
+                    <div class="file-upload" @click="$refs.fileInput.click()">
                         <span class="material-symbols-outlined">upload</span>
-                        <p>Click to upload or drag and drop</p>
-                        <input type="file" id="image-input" accept="image/*" style="display: none;">
+                        <p x-text="uploadedImages.length > 0 ? uploadedImages.length + ' files ready' : 'Tap to take photo'"></p>
                     </div>
-                    <div id="image-preview"></div>
-                </div>
-
-                <div class="form-group">
-                    <div class="terms-checkbox">
-                        <input type="checkbox" id="geolocation">
-                        <label for="geolocation">Enable geolocation for precise location</label>
-                    </div>
-                    <input type="hidden" id="latitude">
-                    <input type="hidden" id="longitude">
-                </div>
-
-                <div class="report-option-group" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
-                    <label style="display: flex; align-items: center; cursor: pointer; font-weight: 600; gap: 10px;">
-                        <input type="checkbox" id="contact-permission-toggle" style="width: 18px; height: 18px;">
-                        Enable option for phone to be called
-                    </label>
+                    <input type="file" x-ref="fileInput" @change="handleImageSelection($event)" multiple accept="image/*" style="display:none">
                     
-                    <div id="phone-input-container" style="display: none; margin-top: 10px;">
-                        <label for="contact-number" style="display: block; font-size: 0.9rem; margin-bottom: 5px;">Phone Number:</label>
-                        <input type="tel" id="contact-number" placeholder="09XXXXXXXXX" 
-                            style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                    <div class="image-preview-container">
+                        <template x-for="(img, index) in imagePreviews" :key="index">
+                            <div class="preview-item">
+                                <img :src="img" class="preview-thumb">
+                                <button @click="removeImage(index)" class="remove-x">×</button>
+                            </div>
+                        </template>
                     </div>
-                    
-                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
-                        * By toggling this on, you give your <strong>consent and permission</strong> to be called by authorized personnel regarding this report for verification and updates. Your data is protected under the Data Privacy Act.
-                    </p>
                 </div>
 
-                <button class="submit-button" id="submit-report">Submit Report</button>
+                <button class="submit-button" @click="submitReport()" :disabled="submitting">
+                    <span x-show="submitting" class="spinner"></span>
+                    <span x-text="submitting ? 'Analyzing & Sending...' : 'Submit Report'"></span>
+                </button>
             </div>
         </main>
     </div>
 
     <nav class="bottom-nav">
-        <a href="index.html" class="nav-item" data-page="dashboard">
-            <span class="material-symbols-outlined nav-icon">dashboard</span>
-            <span>Dashboard</span>
-        </a>
-        <a href="calendar.html" class="nav-item" data-page="calendar">
-            <span class="material-symbols-outlined nav-icon">calendar_month</span>
-            <span>Calendar</span>
-        </a>
-        <a class="nav-item active" data-page="report">
-            <span class="material-symbols-outlined nav-icon">report</span>
-            <span>Report</span>
-        </a>
-        <a href="map.html" class="nav-item" data-page="map">
-            <span class="material-symbols-outlined nav-icon">map</span>
-            <span>Map</span>
-        </a>
-        <a href="notification.html" class="nav-item" data-page="notification">
-            <span class="material-symbols-outlined nav-icon">notifications</span>
-            <span>Notifications</span>
-        </a>
+        <a href="index.html" class="nav-item"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+        <a class="nav-item active"><span class="material-symbols-outlined">report</span><span>Report</span></a>
+        <a href="map.html" class="nav-item"><span class="material-symbols-outlined">map</span><span>Map</span></a>
     </nav>
-
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-    <script src="script/global.js"></script>
-    <script src="script/report.js"></script>
-
-
 </body>
 </html>
