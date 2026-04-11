@@ -567,7 +567,6 @@ function initializeReportForm() {
       contactToggle.addEventListener("change", () => {
           if (contactToggle.checked) {
               phoneContainer.style.display = "block";
-              // Auto-fill logic
               const auth = getAuthState ? getAuthState() : null;
               if (auth && auth.user && auth.user.mobile) {
                   phoneInput.value = auth.user.mobile;
@@ -579,7 +578,6 @@ function initializeReportForm() {
       });
   }
 
-  // Submit & Cancel Buttons
   const submitButton = document.getElementById("submit-report");
   if (submitButton) submitButton.addEventListener("click", submitOutageReport);
 
@@ -727,6 +725,9 @@ function validateReportForm() {
   const cause = document.getElementById("selected-cause").value;
   const description = document.getElementById("outage-description").value;
   const isUrgent = document.getElementById("is-urgent")?.checked || false;
+  
+  const contactPermission = document.getElementById("contact-permission-toggle")?.checked || false;
+  const contactNumber = document.getElementById("contact-number")?.value || "";
 
   const errors = [];
   
@@ -738,6 +739,15 @@ function validateReportForm() {
 
   if (isUrgent && uploadedImages.length === 0) {
     errors.push("Urgent reports require at least one photo for verification.");
+  }
+
+  // Validate contact number if the permission toggle is checked
+  if (contactPermission) {
+    if (!contactNumber.trim()) {
+      errors.push("Please enter a contact number.");
+    } else if (!/^\d+$/.test(contactNumber)) {
+      errors.push("Contact number must contain only numbers. Letters and special characters are not allowed.");
+    }
   }
 
   return {
