@@ -214,6 +214,7 @@ async function loadUserReports() {
       .map(
         (report) => `
         <div class="report-card" data-id="${report.id}">
+          <!-- Status Highlight Bar -->
           <div class="status-highlight status-${report.status || 'pending'}"></div>
           <div class="report-header">
             <div class="feeder-info">${report.barangays?.name || "N/A"}</div>
@@ -578,6 +579,22 @@ function initializeReportForm() {
       });
   }
 
+  // ADD CONTACT NUMBER VALIDATION (STRICT NUMBERS)
+  if (phoneInput) {
+      // Restrict input to numbers only
+      phoneInput.addEventListener("input", function(e) {
+          this.value = this.value.replace(/[^0-9]/g, '');
+      });
+      
+      // Also handle paste events to ensure only numbers are pasted
+      phoneInput.addEventListener("paste", function(e) {
+          e.preventDefault();
+          const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+          const numbersOnly = pastedText.replace(/[^0-9]/g, '');
+          this.value = numbersOnly;
+      });
+  }
+
   // Submit & Cancel Buttons
   const submitButton = document.getElementById("submit-report");
   if (submitButton) submitButton.addEventListener("click", submitOutageReport);
@@ -727,7 +744,7 @@ function validateReportForm() {
   const description = document.getElementById("outage-description").value;
   const isUrgent = document.getElementById("is-urgent")?.checked || false;
   const contactPermission = document.getElementById("contact-permission-toggle")?.checked || false;
-  const contactNumber = document.getElementById("contact-number")?.value || "";
+  const contactNumber = document.getElementById("contact-number")?.value || null;
 
   const errors = [];
   
@@ -737,14 +754,16 @@ function validateReportForm() {
   if (!description.trim()) errors.push("Please provide a description");
   if (description.length < 10) errors.push("Description must be at least 10 characters");
 
-  if (contactPermission && contactNumber.trim() !== "") {
-    if (!/^\d+$/.test(contactNumber.trim())) {
-      errors.push("only numbers for contact");
-    }
-  }
-
   if (isUrgent && uploadedImages.length === 0) {
     errors.push("Urgent reports require at least one photo for verification.");
+  }
+
+  // ADD CONTACT NUMBER VALIDATION FOR NON-NUMERIC CHARACTERS
+  if (contactPermission && contactNumber && contactNumber.trim() !== "") {
+      const containsNonNumber = /[^0-9]/.test(contactNumber);
+      if (containsNonNumber) {
+          errors.push("Contact number must contain numbers only.");
+      }
   }
 
   return {
