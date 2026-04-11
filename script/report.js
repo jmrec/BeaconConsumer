@@ -567,39 +567,53 @@ function initializeReportForm() {
       contactToggle.addEventListener("change", () => {
           if (contactToggle.checked) {
               phoneContainer.style.display = "block";
-              const auth = getAuthState ? getAuthState() : null;
+              const auth = typeof getAuthState === 'function' ? getAuthState() : null;
               if (auth && auth.user && auth.user.mobile) {
                   phoneInput.value = auth.user.mobile;
               }
           } else {
               phoneContainer.style.display = "none";
               phoneInput.value = "";
+              
+              // Clear any red error styles if they turn the toggle off
+              phoneInput.style.border = "";
+              phoneInput.style.backgroundColor = "";
+              const existingError = document.getElementById("phone-invalid-error");
+              if (existingError) existingError.remove();
           }
       });
+
+      // REAL-TIME VISUAL ERROR: Turns red instantly if a string is typed
+      if (phoneInput) {
+          phoneInput.addEventListener("input", function() {
+              const errorId = "phone-invalid-error";
+              let existingError = document.getElementById(errorId);
+              
+              // If the value contains anything that is NOT a digit (\d)
+              if (/[^\d]/.test(this.value)) {
+                  this.style.border = "2px solid red";
+                  this.style.backgroundColor = "#ffe6e6"; // Light red tint
+                  
+                  // Show the error text
+                  if (!existingError) {
+                      const errorMsg = document.createElement("span");
+                      errorMsg.id = errorId;
+                      errorMsg.style.color = "red";
+                      errorMsg.style.fontSize = "12px";
+                      errorMsg.style.display = "block";
+                      errorMsg.style.marginTop = "5px";
+                      errorMsg.innerText = "Enter valid number only";
+                      this.parentNode.appendChild(errorMsg);
+                  }
+              } else {
+                  // Clear the red error if they fix it and enter only numbers
+                  this.style.border = "";
+                  this.style.backgroundColor = "";
+                  if (existingError) existingError.remove();
+              }
+          });
+      }
   }
-
-  const submitButton = document.getElementById("submit-report");
-  if (submitButton) submitButton.addEventListener("click", submitOutageReport);
-
-  const existingCancel = document.getElementById("cancel-report");
-  if (!existingCancel && submitButton) {
-    const cancelBtn = document.createElement("button");
-    cancelBtn.id = "cancel-report";
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.type = "button";
-    cancelBtn.classList.add("cancel-button");
-    cancelBtn.style.cssText = `
-      margin-top:10px; width:100%; padding:10px; background:#eee;
-      color:#333; border:none; border-radius:8px; font-weight:bold; cursor:pointer;
-    `;
-    submitButton.insertAdjacentElement("afterend", cancelBtn);
-
-    cancelBtn.addEventListener("click", () => {
-      resetReportForm();
-      showPage("report");
-    });
-  }
-}
 
 // ==============================
 // Enhanced Image Upload Handling (Multiple Images)
@@ -726,8 +740,10 @@ function validateReportForm() {
   const description = document.getElementById("outage-description").value;
   const isUrgent = document.getElementById("is-urgent")?.checked || false;
   
+  // Fetch contact fields
   const contactPermission = document.getElementById("contact-permission-toggle")?.checked || false;
   const contactNumber = document.getElementById("contact-number")?.value || "";
+  const phoneInput = document.getElementById("contact-number");
 
   const errors = [];
   
@@ -741,12 +757,39 @@ function validateReportForm() {
     errors.push("Urgent reports require at least one photo for verification.");
   }
 
-  // Validate contact number if the permission toggle is checked
+  // STRICT CONTACT VALIDATION: Block strings and turn field red
   if (contactPermission) {
-    if (!contactNumber.trim()) {
-      errors.push("Please enter a contact number.");
-    } else if (!/^\d+$/.test(contactNumber)) {
-      errors.push("Contact number must contain only numbers. Letters and special characters are not allowed.");
+    const errorId = "phone-invalid-error";
+    let existingError = document.getElementById(errorId);
+
+    // If empty OR contains any non-digit characters
+    if (!contactNumber.trim() || /[^\d]/.test(contactNumber)) {
+      errors.push("Contact number error: Enter valid number only");
+      
+      // Turn the field red
+      if (phoneInput) {
+        phoneInput.style.border = "2px solid red";
+        phoneInput.style.backgroundColor = "#ffe6e6";
+        
+        // Inject the text message if it doesn't already exist
+        if (!existingError) {
+          const errorMsg = document.createElement("span");
+          errorMsg.id = errorId;
+          errorMsg.style.color = "red";
+          errorMsg.style.fontSize = "12px";
+          errorMsg.style.display = "block";
+          errorMsg.style.marginTop = "5px";
+          errorMsg.innerText = "Enter valid number only";
+          phoneInput.parentNode.appendChild(errorMsg);
+        }
+      }
+    } else {
+      // Clean up the red styling if it passes
+      if (phoneInput) {
+        phoneInput.style.border = "";
+        phoneInput.style.backgroundColor = "";
+      }
+      if (existingError) existingError.remove();
     }
   }
 
