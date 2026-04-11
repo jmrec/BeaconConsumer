@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const daily = state.outages.filter(outage => isSameDay(new Date(outage.scheduled_at), date));
 
         if(daily.length === 0) {
-            container.innerHTML = `<div class="no-outages-message">No scheduled outages for this date.</div>`;
+            container.innerHTML = `<div class="no-outages-message">No scheduled outages for this date.</div>`;   //pinadagdag ni sir/maam
             return;
         }
 

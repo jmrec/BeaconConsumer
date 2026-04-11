@@ -579,7 +579,7 @@ function initializeReportForm() {
       });
   }
 
-  // ADD CONTACT NUMBER VALIDATION (STRICT NUMBERS)
+  // CONTACT NUMBER ONLY
   if (phoneInput) {
       // Restrict input to numbers only
       phoneInput.addEventListener("input", function(e) {
