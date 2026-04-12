@@ -583,14 +583,14 @@ function initializeReportForm() {
   if (phoneInput) {
       // Restrict input to numbers only
       phoneInput.addEventListener("input", function(e) {
-          this.value = this.value.replace(/[^0-9]/g, '');
+          this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11);
       });
       
       // Also handle paste events to ensure only numbers are pasted
       phoneInput.addEventListener("paste", function(e) {
           e.preventDefault();
           const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-          const numbersOnly = pastedText.replace(/[^0-9]/g, '');
+          const numbersOnly = pastedText.replace(/[^0-9]/g, '').slice(0, 11);
           this.value = numbersOnly;
       });
   }
@@ -753,6 +753,9 @@ function validateReportForm() {
   if (!cause) errors.push("Please select a cause");
   if (!description.trim()) errors.push("Please provide a description");
   if (description.length < 10) errors.push("Description must be at least 10 characters");
+
+  if (contactNumber.trim().length !== 11) errors.push("Contact number must be 11 digits long");
+  if (!contactNumber.startsWith("09")) errors.push("Contact number must start with '09'");
 
   if (isUrgent && uploadedImages.length === 0) {
     errors.push("Urgent reports require at least one photo for verification.");
